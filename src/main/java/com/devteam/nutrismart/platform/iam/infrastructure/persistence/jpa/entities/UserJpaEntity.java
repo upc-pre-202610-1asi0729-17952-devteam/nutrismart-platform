@@ -101,7 +101,7 @@ public class UserJpaEntity extends AuditableAbstractPersistenceEntity {
     @Comment("Fecha de nacimiento del usuario para el cálculo de edad")
     private LocalDate birthday;
 
-    @Comment("Sexo biológico del usuario: 'male' o 'female'")
+    @Comment("Sexo biológico del usuario: «male» o «female»")
     private String biologicalSex;
 
     @Comment("Ciudad de residencia del usuario")
