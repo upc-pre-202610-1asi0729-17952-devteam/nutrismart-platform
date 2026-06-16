@@ -13,14 +13,13 @@ import com.devteam.nutrismart.platform.nutritiontracking.domain.model.repositori
 import com.devteam.nutrismart.platform.shared.application.result.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
-@Transactional
 public class FoodImportCommandServiceImpl implements FoodImportCommandService {
 
     private static final Logger log = LoggerFactory.getLogger(FoodImportCommandServiceImpl.class);
@@ -29,13 +28,16 @@ public class FoodImportCommandServiceImpl implements FoodImportCommandService {
     private final ExternalFoodDataPort externalFoodDataPort;
     private final FoodEnrichmentPort foodEnrichmentPort;
     private final FoodItemRepository foodItemRepository;
+    private final FoodItemImportWriter foodItemImportWriter;
 
     public FoodImportCommandServiceImpl(ExternalFoodDataPort externalFoodDataPort,
                                         FoodEnrichmentPort foodEnrichmentPort,
-                                        FoodItemRepository foodItemRepository) {
+                                        FoodItemRepository foodItemRepository,
+                                        FoodItemImportWriter foodItemImportWriter) {
         this.externalFoodDataPort = externalFoodDataPort;
         this.foodEnrichmentPort = foodEnrichmentPort;
         this.foodItemRepository = foodItemRepository;
+        this.foodItemImportWriter = foodItemImportWriter;
     }
 
     @Override
@@ -78,7 +80,7 @@ public class FoodImportCommandServiceImpl implements FoodImportCommandService {
                         .toList();
             }
 
-            List<FoodItem> itemsToSave = new ArrayList<>();
+            int batchSaved = 0;
             for (int j = 0; j < batch.size(); j++) {
                 ExternalFoodData ext = batch.get(j);
                 EnrichedFoodData enr = j < enriched.size() ? enriched.get(j)
@@ -87,24 +89,31 @@ public class FoodImportCommandServiceImpl implements FoodImportCommandService {
                 List<FoodRestriction> restrictions = parseRestrictions(enr.restrictions());
                 String nameKey = enr.nameEn().toLowerCase().replaceAll("[^a-z0-9]", "");
 
+                FoodItem item;
                 try {
-                    itemsToSave.add(FoodItem.create(
+                    item = FoodItem.create(
                             enr.nameEn(), enr.nameEs(), ext.source(),
                             ext.servingSize(), ext.servingUnit(),
                             ext.caloriesPer100g(), ext.proteinPer100g(), ext.carbsPer100g(),
                             ext.fatPer100g(), ext.fiberPer100g(), ext.sugarPer100g(),
                             restrictions, nameKey, enr.category(), enr.itemType(),
-                            enr.weatherTypes(), enr.originCity(), enr.originCountry()));
+                            enr.weatherTypes(), enr.originCity(), enr.originCountry());
                 } catch (Exception e) {
                     return Result.failure(new FoodImportFailure.InvalidData(
                             "Failed to create food item '" + ext.name() + "': " + e.getMessage()));
                 }
+
+                try {
+                    foodItemImportWriter.save(item);
+                    batchSaved++;
+                } catch (DataIntegrityViolationException e) {
+                    log.warn("[IMPORT] Alimento duplicado ignorado (nameKey='{}') — ya existe en la base de datos", nameKey);
+                }
             }
 
-            foodItemRepository.saveAll(itemsToSave);
-            totalImported += itemsToSave.size();
+            totalImported += batchSaved;
             log.info("[IMPORT] Lote {}/{}: {} alimentos guardados (total acumulado: {})",
-                    (i / BATCH_SIZE) + 1, totalBatches, itemsToSave.size(), totalImported);
+                    (i / BATCH_SIZE) + 1, totalBatches, batchSaved, totalImported);
         }
 
         log.info("[IMPORT] Importación completa: {} alimentos guardados en total", totalImported);
