@@ -289,6 +289,10 @@ public class User {
      * @param newPasswordHash nuevo hash de contraseña codificado
      * @throws IllegalArgumentException si el hash proporcionado es nulo o vacío
      */
+    public void updatePlan(UserPlan plan) {
+        this.plan = plan;
+    }
+
     public void changePassword(String newPasswordHash) {
         if (newPasswordHash == null || newPasswordHash.isBlank()) {
             throw new IllegalArgumentException("Password cannot be blank");

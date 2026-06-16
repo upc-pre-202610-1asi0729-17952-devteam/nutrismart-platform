@@ -5,6 +5,7 @@ import com.devteam.nutrismart.platform.iam.application.commandservices.UserComma
 import com.devteam.nutrismart.platform.iam.application.commands.DeleteUserCommand;
 import com.devteam.nutrismart.platform.iam.application.commands.RegisterAccountCommand;
 import com.devteam.nutrismart.platform.iam.application.commands.UpdateUserCommand;
+import com.devteam.nutrismart.platform.iam.application.commands.UpdateUserPlanCommand;
 import com.devteam.nutrismart.platform.iam.domain.model.aggregates.User;
 import com.devteam.nutrismart.platform.iam.domain.model.repositories.UserRepository;
 import com.devteam.nutrismart.platform.shared.application.result.Result;
@@ -83,6 +84,21 @@ public class UserCommandServiceImpl implements UserCommandService {
                         return Result.<User, UserCommandFailure>success(saved);
                     })
                     .orElse(Result.failure(new UserCommandFailure.UserNotFound(command.id())));
+        } catch (Exception ex) {
+            return Result.failure(new UserCommandFailure.InvalidData(ex.getMessage()));
+        }
+    }
+
+    @Override
+    public Result<User, UserCommandFailure> handle(UpdateUserPlanCommand command) {
+        try {
+            return userRepository.findById(command.userId())
+                    .map(user -> {
+                        user.updatePlan(command.plan());
+                        User saved = userRepository.save(user);
+                        return Result.<User, UserCommandFailure>success(saved);
+                    })
+                    .orElse(Result.failure(new UserCommandFailure.UserNotFound(command.userId())));
         } catch (Exception ex) {
             return Result.failure(new UserCommandFailure.InvalidData(ex.getMessage()));
         }

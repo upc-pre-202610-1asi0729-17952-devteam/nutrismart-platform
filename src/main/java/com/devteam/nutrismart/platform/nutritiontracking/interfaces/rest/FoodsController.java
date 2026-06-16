@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
  * en la plataforma, con soporte para filtrado por tipo de alimento,
  * tipo de clima y restricciones dietéticas.
  */
+@Tag(name = "Foods", description = "Food item management endpoints")
 @RestController
 @RequestMapping("/api/v1/foods")
 public class FoodsController {

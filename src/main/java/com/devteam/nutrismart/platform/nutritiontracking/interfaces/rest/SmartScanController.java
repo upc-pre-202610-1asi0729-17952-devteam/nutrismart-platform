@@ -14,6 +14,10 @@ import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.resourc
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.resources.ScanMenuResultResource;
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.resources.ScanPlateRequest;
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.resources.ScanPlateResultResource;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +27,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/nutrition-log/smart-scan")
+@Tag(name = "Smart Scan", description = "AI-powered food recognition endpoints")
 public class SmartScanController {
 
     private final SmartScanCommandService commandService;
@@ -33,6 +38,12 @@ public class SmartScanController {
         this.userQueryService = userQueryService;
     }
 
+    @Operation(summary = "Scan a plate image", description = "Analyzes a base64-encoded plate image using AI and returns the detected food items with estimated nutritional data")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Plate scanned successfully — detected items returned"),
+        @ApiResponse(responseCode = "400", description = "Invalid image or request data"),
+        @ApiResponse(responseCode = "401", description = "Authentication required")
+    })
     @PostMapping("/plate")
     public ResponseEntity<?> scanPlate(@RequestBody ScanPlateRequest request) {
         Long userId = resolveUserId();
@@ -45,6 +56,12 @@ public class SmartScanController {
         );
     }
 
+    @Operation(summary = "Confirm plate scan", description = "Confirms and saves the food items detected in a plate scan, logging them as meal records")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Plate scan confirmed — meal records created"),
+        @ApiResponse(responseCode = "400", description = "Invalid request data"),
+        @ApiResponse(responseCode = "401", description = "Authentication required")
+    })
     @PostMapping("/plate/confirm")
     public ResponseEntity<?> confirmPlateScan(@RequestBody ConfirmPlateScanRequest request) {
         Long userId = resolveUserId();
@@ -64,6 +81,12 @@ public class SmartScanController {
         );
     }
 
+    @Operation(summary = "Scan a menu image", description = "Analyzes a base64-encoded menu image using AI and returns ranked dish suggestions based on the user's nutritional goals")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Menu scanned successfully — ranked dishes returned"),
+        @ApiResponse(responseCode = "400", description = "Invalid image or request data"),
+        @ApiResponse(responseCode = "401", description = "Authentication required")
+    })
     @PostMapping("/menu")
     public ResponseEntity<?> scanMenu(@RequestBody ScanMenuRequest request) {
         Long userId = resolveUserId();
