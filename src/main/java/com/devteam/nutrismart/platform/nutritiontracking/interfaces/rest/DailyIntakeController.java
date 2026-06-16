@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
  * Permite crear, actualizar y consultar los objetivos calóricos diarios
  * y el resumen de calorías consumidas y quemadas por actividad física de un usuario.
  */
+@Tag(name = "Daily Intake", description = "Daily intake management endpoints")
 @RestController
 @RequestMapping("/api/v1/daily-intake")
 public class DailyIntakeController {

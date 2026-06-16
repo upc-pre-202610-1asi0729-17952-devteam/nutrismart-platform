@@ -1,11 +1,8 @@
 package com.devteam.nutrismart.platform.shared.infrastructure.documentation.openapi.configuration;
 
 import io.swagger.v3.oas.models.Components;
-import io.swagger.v3.oas.models.ExternalDocumentation;
 import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
-import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
@@ -42,27 +39,14 @@ public class OpenApiConfiguration {
         openApi.info(new Info()
                 .title(this.applicationName)
                 .description(this.applicationDescription)
-                .version(this.applicationVersion)
-                .contact(new Contact()
-                        .name("NutriSmart Support")
-                        .email("support@nutrismart.com")
-                        .url("https://nutrismart.com/support"))
-                .license(new License()
-                        .name("Apache 2.0")
-                        .url("https://www.apache.org/licenses/LICENSE-2.0.html")))
-                .externalDocs(new ExternalDocumentation()
-                        .description("NutriSmart Platform Documentation")
-                        .url("https://nutrismart-platform.wiki.github.io/docs"));
+                .version(this.applicationVersion));
 
         openApi.servers(List.of(
                 new Server()
                         .url("http://localhost:8080")
                         .description("Local Development Environment"),
                 new Server()
-                        .url("https://staging-api.nutrismart.com")
-                        .description("Staging Environment"),
-                new Server()
-                        .url("https://api.nutrismart.com")
+                        .url("https://smart-api.nutriproject.xyz")
                         .description("Production Environment")
         ));
 

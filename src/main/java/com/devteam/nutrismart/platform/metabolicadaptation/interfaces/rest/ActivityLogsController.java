@@ -10,6 +10,9 @@ import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.resou
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.ActivityLogResourceFromEntityAssembler;
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.LogActivityCommandFromResourceAssembler;
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.ResponseEntityFromActivityLogCommandResultAssembler;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +33,12 @@ public class ActivityLogsController {
         this.queryService = queryService;
     }
 
+    @Operation(summary = "Get all activity logs", description = "Retrieves all activity log records, optionally filtered by userId")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Activity logs retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "403", description = "Access denied")
+    })
     @GetMapping
     public ResponseEntity<List<ActivityLogResource>> getAllActivityLogs(
             @RequestParam(required = false) Long userId) {
@@ -39,6 +48,12 @@ public class ActivityLogsController {
         return ResponseEntity.ok(logs);
     }
 
+    @Operation(summary = "Get activity log by ID", description = "Retrieves a single activity log record by its ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Activity log retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "404", description = "Activity log not found")
+    })
     @GetMapping("/{id}")
     public ResponseEntity<ActivityLogResource> getActivityLogById(@PathVariable Long id) {
         return queryService.handle(new GetActivityLogByIdQuery(id))
@@ -47,6 +62,13 @@ public class ActivityLogsController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(summary = "Create a new activity log", description = "Logs a new physical activity record for a user")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Activity log created successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid request data"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
     @PostMapping
     public ResponseEntity<?> createActivityLog(@Valid @RequestBody CreateActivityLogResource resource) {
         var command = LogActivityCommandFromResourceAssembler.toCommandFromResource(resource);
@@ -54,6 +76,12 @@ public class ActivityLogsController {
         return ResponseEntityFromActivityLogCommandResultAssembler.toResponseEntityFromCreateResult(result);
     }
 
+    @Operation(summary = "Delete activity log", description = "Deletes an activity log record by its ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Activity log deleted successfully"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "404", description = "Activity log not found")
+    })
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteActivityLog(@PathVariable Long id) {
         var command = new DeleteActivityLogCommand(id);

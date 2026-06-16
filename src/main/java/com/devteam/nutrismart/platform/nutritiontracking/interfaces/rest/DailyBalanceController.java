@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
  * Expone endpoints de solo lectura que permiten obtener los registros de ingesta diaria
  * filtrados por usuario y/o fecha.
  */
+@Tag(name = "Daily Balance", description = "Daily nutritional balance endpoints")
 @RestController
 @RequestMapping("/api/v1/daily-balance")
 public class DailyBalanceController {

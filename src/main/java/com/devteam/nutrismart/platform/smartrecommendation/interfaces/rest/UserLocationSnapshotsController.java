@@ -10,6 +10,9 @@ import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.resou
 import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.transform.CreateLocationSnapshotCommandFromResourceAssembler;
 import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.transform.LocationSnapshotResourceFromEntityAssembler;
 import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.transform.ResponseEntityFromLocationSnapshotCommandResultAssembler;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +34,12 @@ public class UserLocationSnapshotsController {
         this.queryService = queryService;
     }
 
+    @Operation(summary = "Get all user location snapshots", description = "Retrieves all location snapshots. Supports filtering by userId and sorting/limiting parameters. If userId, sort=recordedAt, order=desc and limit=1 are provided, returns only the most recent snapshot.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Location snapshots retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "403", description = "Access denied")
+    })
     @GetMapping
     public ResponseEntity<List<LocationSnapshotResource>> getAll(
             @RequestParam(required = false) Long userId,
@@ -51,6 +60,12 @@ public class UserLocationSnapshotsController {
         return ResponseEntity.ok(snapshots);
     }
 
+    @Operation(summary = "Get user location snapshot by ID", description = "Retrieves a single user location snapshot by its ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Location snapshot retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "404", description = "Location snapshot not found")
+    })
     @GetMapping("/{id}")
     public ResponseEntity<LocationSnapshotResource> getById(@PathVariable Long id) {
         return queryService.handle(new GetLocationSnapshotByIdQuery(id))
@@ -59,6 +74,13 @@ public class UserLocationSnapshotsController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(summary = "Create a new user location snapshot", description = "Records the current location of a user")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Location snapshot created successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid request data"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
     @PostMapping
     public ResponseEntity<?> create(@Valid @RequestBody CreateLocationSnapshotResource resource) {
         var command = CreateLocationSnapshotCommandFromResourceAssembler.toCommandFromResource(resource);
