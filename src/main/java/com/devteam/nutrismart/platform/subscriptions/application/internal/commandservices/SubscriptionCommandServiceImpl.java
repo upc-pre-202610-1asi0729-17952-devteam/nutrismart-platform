@@ -1,5 +1,8 @@
 package com.devteam.nutrismart.platform.subscriptions.application.internal.commandservices;
 
+import com.devteam.nutrismart.platform.iam.application.commandservices.UserCommandService;
+import com.devteam.nutrismart.platform.iam.application.commands.UpdateUserPlanCommand;
+import com.devteam.nutrismart.platform.iam.domain.model.valueobjects.UserPlan;
 import com.devteam.nutrismart.platform.shared.application.result.Result;
 import com.devteam.nutrismart.platform.subscriptions.application.commandservices.SubscriptionCommandFailure;
 import com.devteam.nutrismart.platform.subscriptions.application.commandservices.SubscriptionCommandService;
@@ -21,9 +24,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class SubscriptionCommandServiceImpl implements SubscriptionCommandService {
 
     private final SubscriptionRepository subscriptionRepository;
+    private final UserCommandService userCommandService;
 
-    public SubscriptionCommandServiceImpl(SubscriptionRepository subscriptionRepository) {
+    public SubscriptionCommandServiceImpl(SubscriptionRepository subscriptionRepository,
+                                          UserCommandService userCommandService) {
         this.subscriptionRepository = subscriptionRepository;
+        this.userCommandService = userCommandService;
     }
 
     @Override
@@ -34,6 +40,8 @@ public class SubscriptionCommandServiceImpl implements SubscriptionCommandServic
             }
             Subscription subscription = Subscription.create(command.userId(), command.plan());
             Subscription saved = subscriptionRepository.save(subscription);
+            UserPlan userPlan = UserPlan.valueOf(command.plan().name());
+            userCommandService.handle(new UpdateUserPlanCommand(command.userId(), userPlan));
             return Result.success(saved);
         } catch (Exception ex) {
             return Result.failure(new SubscriptionCommandFailure.InvalidData(ex.getMessage()));
