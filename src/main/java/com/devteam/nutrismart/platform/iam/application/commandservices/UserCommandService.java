@@ -3,6 +3,7 @@ package com.devteam.nutrismart.platform.iam.application.commandservices;
 import com.devteam.nutrismart.platform.iam.application.commands.DeleteUserCommand;
 import com.devteam.nutrismart.platform.iam.application.commands.RegisterAccountCommand;
 import com.devteam.nutrismart.platform.iam.application.commands.UpdateUserCommand;
+import com.devteam.nutrismart.platform.iam.application.commands.UpdateUserPlanCommand;
 import com.devteam.nutrismart.platform.iam.domain.model.aggregates.User;
 import com.devteam.nutrismart.platform.shared.application.result.Result;
 
@@ -27,6 +28,14 @@ public interface UserCommandService {
      * @return {@code Result} con el usuario actualizado, o un fallo tipado en caso de error
      */
     Result<User, UserCommandFailure> handle(UpdateUserCommand command);
+
+    /**
+     * Actualiza el plan de suscripción de un usuario existente.
+     *
+     * @param command userId y nuevo plan a asignar
+     * @return {@code Result} con el usuario actualizado, o un fallo tipado en caso de error
+     */
+    Result<User, UserCommandFailure> handle(UpdateUserPlanCommand command);
 
     /**
      * Procesa la eliminación de la cuenta de un usuario.

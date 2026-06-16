@@ -11,6 +11,10 @@ import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.resourc
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.transform.MealRecordCommandFromResourceAssembler;
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.transform.MealRecordResourceFromEntityAssembler;
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.transform.ResponseEntityFromMealRecordCommandResultAssembler;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +25,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/nutrition-log")
+@Tag(name = "Nutrition Log", description = "Nutrition log management endpoints")
 public class NutritionLogController {
 
     private final MealRecordCommandService commandService;
@@ -35,6 +40,12 @@ public class NutritionLogController {
         this.mealRecordRepository = mealRecordRepository;
     }
 
+    @Operation(summary = "Get all nutrition logs", description = "Retrieves meal records. Can be filtered by userId and/or loggedAt date (yyyy-MM-dd)")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Nutrition logs retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "403", description = "Access denied")
+    })
     @GetMapping
     public ResponseEntity<List<MealRecordResource>> getAll(
             @RequestParam(required = false) Long userId,
@@ -57,6 +68,13 @@ public class NutritionLogController {
         return ResponseEntity.ok(resources);
     }
 
+    @Operation(summary = "Create a new nutrition log", description = "Logs a new meal record for a user")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Nutrition log created successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid request data"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
     @PostMapping
     public ResponseEntity<MealRecordResource> create(@RequestBody CreateMealRecordResource resource) {
         var command = MealRecordCommandFromResourceAssembler.toLogMealCommand(resource);
@@ -64,6 +82,13 @@ public class NutritionLogController {
         return ResponseEntityFromMealRecordCommandResultAssembler.toResponseEntity(result, HttpStatus.CREATED);
     }
 
+    @Operation(summary = "Update nutrition log", description = "Updates an existing meal record by ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Nutrition log updated successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid request data"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "404", description = "Nutrition log not found")
+    })
     @PutMapping("/{id}")
     public ResponseEntity<MealRecordResource> update(@PathVariable Long id,
                                                       @RequestBody UpdateMealRecordResource resource) {
@@ -72,6 +97,12 @@ public class NutritionLogController {
         return ResponseEntityFromMealRecordCommandResultAssembler.toResponseEntity(result, HttpStatus.OK);
     }
 
+    @Operation(summary = "Delete nutrition log", description = "Deletes a meal record by its ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Nutrition log deleted successfully"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "404", description = "Nutrition log not found")
+    })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         var result = commandService.handle(new DeleteMealLogCommand(id));

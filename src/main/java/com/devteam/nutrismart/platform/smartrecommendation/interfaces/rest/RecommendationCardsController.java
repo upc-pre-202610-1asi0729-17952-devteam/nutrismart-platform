@@ -13,6 +13,9 @@ import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.resou
 import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.transform.CreateRecommendationCardCommandFromResourceAssembler;
 import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.transform.RecommendationCardResourceFromEntityAssembler;
 import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.transform.ResponseEntityFromRecommendationCardCommandResultAssembler;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -45,6 +48,12 @@ public class RecommendationCardsController {
         this.generationLock = generationLock;
     }
 
+    @Operation(summary = "Get all recommendation cards", description = "Retrieves recommendation cards filtered by weatherType, cardType, travelCity or travelCountry. Auto-fills if fewer than 5 cards match the context.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Recommendation cards retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "403", description = "Access denied")
+    })
     @GetMapping
     public ResponseEntity<List<RecommendationCardResource>> getAll(
             @RequestParam(required = false) WeatherType weatherType,
@@ -77,6 +86,12 @@ public class RecommendationCardsController {
         return ResponseEntity.ok(cards);
     }
 
+    @Operation(summary = "Get recommendation card by ID", description = "Retrieves a single recommendation card by its ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Recommendation card retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "404", description = "Recommendation card not found")
+    })
     @GetMapping("/{id}")
     public ResponseEntity<RecommendationCardResource> getById(@PathVariable Long id) {
         return queryService.handle(new GetRecommendationCardByIdQuery(id))
@@ -85,6 +100,12 @@ public class RecommendationCardsController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(summary = "Create a new recommendation card", description = "Creates a new recommendation card manually")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Recommendation card created successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid request data"),
+        @ApiResponse(responseCode = "401", description = "Authentication required")
+    })
     @PostMapping
     public ResponseEntity<?> create(@Valid @RequestBody CreateRecommendationCardResource resource) {
         var command = CreateRecommendationCardCommandFromResourceAssembler.toCommandFromResource(resource);

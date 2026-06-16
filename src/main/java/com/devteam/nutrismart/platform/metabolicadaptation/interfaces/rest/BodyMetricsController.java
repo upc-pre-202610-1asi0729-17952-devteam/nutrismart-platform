@@ -10,6 +10,9 @@ import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.trans
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.LogBodyMetricsCommandFromResourceAssembler;
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.ResponseEntityFromBodyMetricCommandResultAssembler;
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.UpdateBodyMetricCommandFromResourceAssembler;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +33,12 @@ public class BodyMetricsController {
         this.queryService = queryService;
     }
 
+    @Operation(summary = "Get all body metrics", description = "Retrieves all body metric records, optionally filtered by userId")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Body metrics retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "403", description = "Access denied")
+    })
     @GetMapping
     public ResponseEntity<List<BodyMetricResource>> getAllBodyMetrics(
             @RequestParam(required = false) Long userId) {
@@ -39,6 +48,13 @@ public class BodyMetricsController {
         return ResponseEntity.ok(metrics);
     }
 
+    @Operation(summary = "Create a new body metric", description = "Logs a new body metric record for a user")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Body metric created successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid request data"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
     @PostMapping
     public ResponseEntity<?> createBodyMetric(@Valid @RequestBody CreateBodyMetricResource resource) {
         var command = LogBodyMetricsCommandFromResourceAssembler.toCommandFromResource(resource);
@@ -46,6 +62,13 @@ public class BodyMetricsController {
         return ResponseEntityFromBodyMetricCommandResultAssembler.toResponseEntityFromCreateResult(result);
     }
 
+    @Operation(summary = "Update body metric", description = "Updates an existing body metric record by ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Body metric updated successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid request data"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "404", description = "Body metric record not found")
+    })
     @PutMapping("/{id}")
     public ResponseEntity<?> updateBodyMetric(@PathVariable Long id,
                                                @Valid @RequestBody UpdateBodyMetricResource resource) {
