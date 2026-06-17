@@ -3,13 +3,11 @@ package com.devteam.nutrismart.platform.nutritiontracking.application.ports;
 import java.util.List;
 
 /**
- * Puerto de salida para el reconocimiento de imágenes relacionadas con alimentos.
- * <p>
- * Define el contrato que deben cumplir los adaptadores que se integran con servicios
- * externos de visión artificial (p. ej., modelos multimodales de IA) para analizar
- * imágenes de platos o menús de restaurante y extraer información alimentaria de ellas.
- * </p>
+ * @deprecated Reemplazado por {@link PlateImageRecognitionPort} (plate scan, nutritiontracking BC)
+ * y {@code MenuImageRecognitionPort} (menu scan, restaurantintelligence BC).
+ * Este interface será eliminado en la próxima limpieza.
  */
+@Deprecated(forRemoval = true)
 public interface ImageRecognitionPort {
 
     /**

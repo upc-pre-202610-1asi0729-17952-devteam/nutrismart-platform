@@ -1,8 +1,7 @@
 package com.devteam.nutrismart.platform.nutritiontracking.infrastructure.external.gemini;
 
 import com.devteam.nutrismart.platform.nutritiontracking.application.ports.DetectedFoodItem;
-import com.devteam.nutrismart.platform.nutritiontracking.application.ports.ImageRecognitionPort;
-import com.devteam.nutrismart.platform.nutritiontracking.application.ports.MenuDishCandidate;
+import com.devteam.nutrismart.platform.nutritiontracking.application.ports.PlateImageRecognitionPort;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,16 +14,12 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Adaptador de infraestructura que implementa {@link ImageRecognitionPort} utilizando
- * la API de Gemini Vision de Google.
- * <p>
- * Se encarga de enviar imágenes codificadas en Base64 junto con prompts específicos
- * al modelo de visión de Gemini y de transformar la respuesta JSON en los tipos
- * del dominio ({@link DetectedFoodItem} y {@link MenuDishCandidate}).
- * </p>
+ * Adaptador de infraestructura que implementa {@link PlateImageRecognitionPort} utilizando
+ * la API de Gemini Vision de Google. Solo gestiona el reconocimiento de platos.
+ * El escaneo de menús de restaurante es responsabilidad de RestaurantIntelligence BC.
  */
 @Component
-public class GeminiVisionAdapter implements ImageRecognitionPort {
+public class GeminiVisionAdapter implements PlateImageRecognitionPort {
 
     private static final Logger log = LoggerFactory.getLogger(GeminiVisionAdapter.class);
 
@@ -32,11 +27,6 @@ public class GeminiVisionAdapter implements ImageRecognitionPort {
             "Identify each visible food item in this plate image and estimate the quantity in grams. " +
             "Use English names for each item. " +
             "Respond ONLY with JSON: [{\"name\": \"english name\", \"estimatedQuantityG\": number}]";
-
-    private static final String MENU_PROMPT =
-            "Extract each dish and its price (if visible) from this restaurant menu. " +
-            "Use English names for each dish. " +
-            "Respond ONLY with JSON: [{\"name\": \"english name\", \"price\": \"...\"|null}]";
 
     private final GeminiVisionClient client;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -81,45 +71,6 @@ public class GeminiVisionAdapter implements ImageRecognitionPort {
             return result;
         } catch (Exception e) {
             log.error("[GEMINI] Failed to parse plate response: {}", e.getMessage());
-            return Collections.emptyList();
-        }
-    }
-
-    /**
-     * Extrae los platos y sus precios a partir de la imagen de un menú de restaurante.
-     * <p>
-     * Envía la imagen junto con un prompt específico a Gemini Vision y parsea la
-     * respuesta JSON para construir la lista de {@link MenuDishCandidate}.
-     * En caso de error en la llamada o en el parseo, retorna una lista vacía.
-     * </p>
-     *
-     * @param imageBase64 imagen del menú codificada en Base64 (puede incluir prefijo data-URL)
-     * @return lista de platos detectados con su precio (si es visible);
-     *         lista vacía si la operación falla
-     */
-    @Override
-    public List<MenuDishCandidate> extractMenuItems(String imageBase64) {
-        String raw;
-        try {
-            raw = client.generateContent(MENU_PROMPT, imageBase64);
-        } catch (Exception e) {
-            log.error("[GEMINI] extractMenuItems failed: {}", e.getMessage(), e);
-            return Collections.emptyList();
-        }
-        log.info("[GEMINI MENU RAW] {}", raw);
-        String json = stripMarkdown(raw);
-
-        try {
-            List<JsonNode> nodes = objectMapper.readValue(json, new TypeReference<>() {});
-            List<MenuDishCandidate> result = new ArrayList<>();
-            for (JsonNode node : nodes) {
-                String name  = textOrDefault(node, "name", "Unknown dish");
-                String price = textOrNull(node, "price");
-                result.add(new MenuDishCandidate(name, price));
-            }
-            return result;
-        } catch (Exception e) {
-            log.error("[GEMINI] Failed to parse menu response: {}", e.getMessage());
             return Collections.emptyList();
         }
     }
