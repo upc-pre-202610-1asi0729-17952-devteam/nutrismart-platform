@@ -1,27 +1,31 @@
-package com.devteam.nutrismart.platform.nutritiontracking.infrastructure.external.deepseek;
+package com.devteam.nutrismart.platform.restaurantintelligence.infrastructure.external.deepseek;
 
-import com.devteam.nutrismart.platform.nutritiontracking.application.ports.*;
+import com.devteam.nutrismart.platform.restaurantintelligence.application.ports.output.MenuRankingPort;
+import com.devteam.nutrismart.platform.restaurantintelligence.application.ports.output.dto.FoodItemCandidate;
+import com.devteam.nutrismart.platform.restaurantintelligence.application.ports.output.dto.GeneratedMenuFoodData;
+import com.devteam.nutrismart.platform.restaurantintelligence.application.ports.output.dto.MenuDishCandidate;
+import com.devteam.nutrismart.platform.restaurantintelligence.application.ports.output.dto.RankedDishData;
+import com.devteam.nutrismart.platform.restaurantintelligence.application.ports.output.dto.UserProfileData;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-// @Component removed: menu ranking moved to restaurantintelligence BC.
-// Pendiente de eliminar tras confirmar migración completa.
-@Deprecated(forRemoval = true)
+@Component
 public class DeepSeekMenuRankingAdapter implements MenuRankingPort {
 
     private static final Logger log = LoggerFactory.getLogger(DeepSeekMenuRankingAdapter.class);
 
-    private final DeepSeekClient client;
+    private final DeepSeekMenuClient client;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public DeepSeekMenuRankingAdapter(DeepSeekClient client) {
+    public DeepSeekMenuRankingAdapter(DeepSeekMenuClient client) {
         this.client = client;
     }
 

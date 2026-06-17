@@ -5,13 +5,9 @@ import com.devteam.nutrismart.platform.iam.application.queryservices.UserQuerySe
 import com.devteam.nutrismart.platform.iam.domain.model.valueobjects.EmailAddress;
 import com.devteam.nutrismart.platform.nutritiontracking.application.commandservices.SmartScanCommandService;
 import com.devteam.nutrismart.platform.nutritiontracking.application.commands.ConfirmPlateScanCommand;
-import com.devteam.nutrismart.platform.nutritiontracking.application.commands.ScanMenuCommand;
 import com.devteam.nutrismart.platform.nutritiontracking.application.commands.ScanPlateCommand;
 import com.devteam.nutrismart.platform.nutritiontracking.application.ports.PlateItemResult;
-import com.devteam.nutrismart.platform.nutritiontracking.application.ports.RankedMenuResult;
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.resources.ConfirmPlateScanRequest;
-import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.resources.ScanMenuRequest;
-import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.resources.ScanMenuResultResource;
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.resources.ScanPlateRequest;
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.resources.ScanPlateResultResource;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,14 +16,17 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/nutrition-log/smart-scan")
-@Tag(name = "Smart Scan", description = "AI-powered food recognition endpoints")
+@Tag(name = "Smart Scan", description = "AI-powered plate recognition endpoints")
 public class SmartScanController {
 
     private final SmartScanCommandService commandService;
@@ -51,7 +50,7 @@ public class SmartScanController {
 
         var command = new ScanPlateCommand(userId, request.imageBase64(), request.mealType());
         return commandService.handlePlateScan(command).fold(
-                items -> ResponseEntity.ok(toPlateResource(items)),
+                items   -> ResponseEntity.ok(toPlateResource(items)),
                 failure -> ResponseEntity.badRequest().body(Map.of("error", failure.getClass().getSimpleName()))
         );
     }
@@ -81,24 +80,6 @@ public class SmartScanController {
         );
     }
 
-    @Operation(summary = "Scan a menu image", description = "Analyzes a base64-encoded menu image using AI and returns ranked dish suggestions based on the user's nutritional goals")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Menu scanned successfully — ranked dishes returned"),
-        @ApiResponse(responseCode = "400", description = "Invalid image or request data"),
-        @ApiResponse(responseCode = "401", description = "Authentication required")
-    })
-    @PostMapping("/menu")
-    public ResponseEntity<?> scanMenu(@RequestBody ScanMenuRequest request) {
-        Long userId = resolveUserId();
-        if (userId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthenticated"));
-
-        var command = new ScanMenuCommand(userId, request.imageBase64());
-        return commandService.handleMenuScan(command).fold(
-                dishes -> ResponseEntity.ok(toMenuResource(dishes)),
-                failure -> ResponseEntity.badRequest().body(Map.of("error", failure.getClass().getSimpleName()))
-        );
-    }
-
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private Long resolveUserId() {
@@ -123,17 +104,5 @@ public class SmartScanController {
                         i.isEstimate()))
                 .toList();
         return new ScanPlateResultResource(resources);
-    }
-
-    private ScanMenuResultResource toMenuResource(List<RankedMenuResult> dishes) {
-        List<ScanMenuResultResource.RankedDishResource> resources = dishes.stream()
-                .map(d -> new ScanMenuResultResource.RankedDishResource(
-                        d.rank(), d.dishName(), d.dishNameEs(), d.nameKey(), d.price(), d.matchedFoodItemId(),
-                        d.compatibilityScore(), d.reason(), d.reasonEn(),
-                        d.estimatedCalories(), d.estimatedProtein(),
-                        d.estimatedCarbs(), d.estimatedFat(),
-                        d.conflictingRestrictions()))
-                .toList();
-        return new ScanMenuResultResource(resources);
     }
 }
