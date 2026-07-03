@@ -1,28 +1,25 @@
 package com.devteam.nutrismart.platform.restaurantintelligence.infrastructure.acl;
 
 import com.devteam.nutrismart.platform.restaurantintelligence.application.ports.output.SubscriptionStatusLookupPort;
-import com.devteam.nutrismart.platform.subscriptions.domain.model.aggregates.Subscription;
-import com.devteam.nutrismart.platform.subscriptions.domain.model.repositories.SubscriptionRepository;
-import com.devteam.nutrismart.platform.subscriptions.domain.model.valueobjects.SubscriptionPlan;
-import com.devteam.nutrismart.platform.subscriptions.domain.model.valueobjects.SubscriptionStatus;
+import com.devteam.nutrismart.platform.subscriptions.interfaces.acl.SubscriptionsContextFacade;
 import org.springframework.stereotype.Component;
 
-import java.util.Optional;
-
+/**
+ * ACL adapter: consulta el acceso premium a través del
+ * {@link SubscriptionsContextFacade} (published language), sin acoplarse al
+ * dominio interno del contexto Subscriptions.
+ */
 @Component
 public class SubscriptionStatusLookupAdapter implements SubscriptionStatusLookupPort {
 
-    private final SubscriptionRepository subscriptionRepository;
+    private final SubscriptionsContextFacade subscriptionsContextFacade;
 
-    public SubscriptionStatusLookupAdapter(SubscriptionRepository subscriptionRepository) {
-        this.subscriptionRepository = subscriptionRepository;
+    public SubscriptionStatusLookupAdapter(SubscriptionsContextFacade subscriptionsContextFacade) {
+        this.subscriptionsContextFacade = subscriptionsContextFacade;
     }
 
     @Override
     public boolean hasPremiumAccess(Long userId) {
-        Optional<Subscription> active = subscriptionRepository.findByUserIdAndStatus(userId, SubscriptionStatus.ACTIVE);
-        return active
-                .map(sub -> sub.getPlan() == SubscriptionPlan.PREMIUM || sub.getPlan() == SubscriptionPlan.PRO)
-                .orElse(false);
+        return subscriptionsContextFacade.hasPremiumAccess(userId);
     }
 }
