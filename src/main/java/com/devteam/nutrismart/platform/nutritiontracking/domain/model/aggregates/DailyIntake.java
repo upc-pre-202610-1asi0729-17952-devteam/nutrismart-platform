@@ -97,6 +97,20 @@ public class DailyIntake {
         this.active = active;
     }
 
+    /**
+     * Indica si el usuario ha alcanzado (o superado) su objetivo calórico diario.
+     * <p>
+     * Regla de dominio usada para decidir cuándo emitir el evento de "meta alcanzada":
+     * solo aplica cuando existe un objetivo positivo y las calorías consumidas lo igualan
+     * o superan.
+     * </p>
+     *
+     * @return {@code true} si {@code consumed >= dailyGoal} con un objetivo mayor que cero.
+     */
+    public boolean hasReachedGoal() {
+        return dailyGoal != null && dailyGoal > 0 && consumed != null && consumed >= dailyGoal;
+    }
+
     public Long getId() { return id; }
     public Long getUserId() { return userId; }
     public LocalDate getDate() { return date; }
