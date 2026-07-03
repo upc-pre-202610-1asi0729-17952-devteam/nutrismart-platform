@@ -9,6 +9,7 @@ import com.devteam.nutrismart.platform.subscriptions.interfaces.rest.resources.C
 import com.devteam.nutrismart.platform.subscriptions.interfaces.rest.transform.BillingRecordCommandFromResourceAssembler;
 import com.devteam.nutrismart.platform.subscriptions.interfaces.rest.transform.BillingRecordResourceFromEntityAssembler;
 import com.devteam.nutrismart.platform.subscriptions.interfaces.rest.transform.ResponseEntityFromBillingRecordCommandResultAssembler;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -31,11 +32,14 @@ public class BillingHistoryController {
 
     private final BillingRecordCommandService commandService;
     private final BillingRecordQueryService queryService;
+    private final CurrentUserGuard currentUser;
 
     public BillingHistoryController(BillingRecordCommandService commandService,
-                                    BillingRecordQueryService queryService) {
+                                    BillingRecordQueryService queryService,
+                                    CurrentUserGuard currentUser) {
         this.commandService = commandService;
         this.queryService = queryService;
+        this.currentUser = currentUser;
     }
 
     @Operation(summary = "Get all billing records",
@@ -47,9 +51,7 @@ public class BillingHistoryController {
     public ResponseEntity<List<BillingRecordResource>> getAllBillingRecords(
             @Parameter(description = "Filter billing records by user ID (optional)", example = "1")
             @RequestParam(required = false) Long userId) {
-        var records = (userId != null)
-                ? queryService.findByUserId(userId)
-                : queryService.handle(new GetAllBillingRecordsQuery());
+        var records = queryService.findByUserId(currentUser.scopeToOwner(userId));
         return ResponseEntity.ok(records.stream()
                 .map(BillingRecordResourceFromEntityAssembler::toResourceFromEntity)
                 .toList());
@@ -66,6 +68,7 @@ public class BillingHistoryController {
             @Parameter(description = "Unique identifier of the billing record", example = "1")
             @PathVariable Long id) {
         return queryService.handle(new GetBillingRecordByIdQuery(id))
+                .filter(record -> currentUser.isOwner(record.getUserId()))
                 .map(BillingRecordResourceFromEntityAssembler::toResourceFromEntity)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -79,6 +82,7 @@ public class BillingHistoryController {
     })
     @PostMapping
     public ResponseEntity<?> createBillingRecord(@Valid @RequestBody CreateBillingRecordResource resource) {
+        currentUser.ensureOwner(resource.userId());
         var command = BillingRecordCommandFromResourceAssembler.toCommandFromResource(resource);
         var result = commandService.handle(command);
         return ResponseEntityFromBillingRecordCommandResultAssembler.toResponseEntityFromCreateResult(result);
