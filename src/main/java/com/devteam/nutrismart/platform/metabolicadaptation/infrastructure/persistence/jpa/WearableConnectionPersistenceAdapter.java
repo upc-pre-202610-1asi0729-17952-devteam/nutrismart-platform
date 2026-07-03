@@ -39,6 +39,11 @@ public class WearableConnectionPersistenceAdapter implements WearableConnectionR
     }
 
     @Override
+    public Optional<WearableConnection> findByUserIdAndProvider(Long userId, String provider) {
+        return springDataRepo.findByUserIdAndProvider(userId, provider).map(WearableConnectionPersistenceMapper::toDomain);
+    }
+
+    @Override
     public WearableConnection save(WearableConnection wearableConnection) {
         return WearableConnectionPersistenceMapper.toDomain(
                 springDataRepo.save(WearableConnectionPersistenceMapper.toJpaEntity(wearableConnection)));

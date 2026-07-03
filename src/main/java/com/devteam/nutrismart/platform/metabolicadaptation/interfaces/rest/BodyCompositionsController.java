@@ -10,6 +10,7 @@ import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.trans
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.LogBodyCompositionCommandFromResourceAssembler;
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.ResponseEntityFromBodyCompositionCommandResultAssembler;
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.UpdateBodyCompositionCommandFromResourceAssembler;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -27,10 +28,13 @@ public class BodyCompositionsController {
 
     private final BodyCompositionCommandService commandService;
     private final BodyCompositionQueryService queryService;
+    private final CurrentUserGuard currentUser;
 
-    public BodyCompositionsController(BodyCompositionCommandService commandService, BodyCompositionQueryService queryService) {
+    public BodyCompositionsController(BodyCompositionCommandService commandService, BodyCompositionQueryService queryService,
+                                      CurrentUserGuard currentUser) {
         this.commandService = commandService;
         this.queryService = queryService;
+        this.currentUser = currentUser;
     }
 
     @Operation(summary = "Get all body compositions", description = "Retrieves all body composition records, optionally filtered by userId")
@@ -42,7 +46,7 @@ public class BodyCompositionsController {
     @GetMapping
     public ResponseEntity<List<BodyCompositionResource>> getAllBodyCompositions(
             @RequestParam(required = false) Long userId) {
-        var compositions = queryService.handle(new GetAllBodyCompositionsQuery(userId)).stream()
+        var compositions = queryService.handle(new GetAllBodyCompositionsQuery(currentUser.scopeToOwner(userId))).stream()
                 .map(BodyCompositionResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
         return ResponseEntity.ok(compositions);
@@ -57,6 +61,7 @@ public class BodyCompositionsController {
     })
     @PostMapping
     public ResponseEntity<?> createBodyComposition(@Valid @RequestBody CreateBodyCompositionResource resource) {
+        currentUser.ensureOwner(resource.userId());
         var command = LogBodyCompositionCommandFromResourceAssembler.toCommandFromResource(resource);
         var result = commandService.handle(command);
         return ResponseEntityFromBodyCompositionCommandResultAssembler.toResponseEntityFromCreateResult(result);
@@ -72,6 +77,9 @@ public class BodyCompositionsController {
     @PutMapping("/{id}")
     public ResponseEntity<?> updateBodyComposition(@PathVariable Long id,
                                                     @Valid @RequestBody UpdateBodyCompositionResource resource) {
+        boolean owns = queryService.handle(new GetAllBodyCompositionsQuery(currentUser.requireUserId()))
+                .stream().anyMatch(c -> id.equals(c.getId()));
+        if (!owns) return ResponseEntity.notFound().build();
         var command = UpdateBodyCompositionCommandFromResourceAssembler.toCommandFromResource(id, resource);
         var result = commandService.handle(command);
         return ResponseEntityFromBodyCompositionCommandResultAssembler.toResponseEntityFromUpdateResult(result);

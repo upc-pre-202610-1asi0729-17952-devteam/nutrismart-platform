@@ -10,6 +10,7 @@ import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.trans
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.LogBodyMetricsCommandFromResourceAssembler;
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.ResponseEntityFromBodyMetricCommandResultAssembler;
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.UpdateBodyMetricCommandFromResourceAssembler;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -27,10 +28,13 @@ public class BodyMetricsController {
 
     private final BodyMetricCommandService commandService;
     private final BodyMetricQueryService queryService;
+    private final CurrentUserGuard currentUser;
 
-    public BodyMetricsController(BodyMetricCommandService commandService, BodyMetricQueryService queryService) {
+    public BodyMetricsController(BodyMetricCommandService commandService, BodyMetricQueryService queryService,
+                                 CurrentUserGuard currentUser) {
         this.commandService = commandService;
         this.queryService = queryService;
+        this.currentUser = currentUser;
     }
 
     @Operation(summary = "Get all body metrics", description = "Retrieves all body metric records, optionally filtered by userId")
@@ -42,7 +46,7 @@ public class BodyMetricsController {
     @GetMapping
     public ResponseEntity<List<BodyMetricResource>> getAllBodyMetrics(
             @RequestParam(required = false) Long userId) {
-        var metrics = queryService.handle(new GetAllBodyMetricsQuery(userId)).stream()
+        var metrics = queryService.handle(new GetAllBodyMetricsQuery(currentUser.scopeToOwner(userId))).stream()
                 .map(BodyMetricResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
         return ResponseEntity.ok(metrics);
@@ -57,6 +61,7 @@ public class BodyMetricsController {
     })
     @PostMapping
     public ResponseEntity<?> createBodyMetric(@Valid @RequestBody CreateBodyMetricResource resource) {
+        currentUser.ensureOwner(resource.userId());
         var command = LogBodyMetricsCommandFromResourceAssembler.toCommandFromResource(resource);
         var result = commandService.handle(command);
         return ResponseEntityFromBodyMetricCommandResultAssembler.toResponseEntityFromCreateResult(result);
@@ -72,6 +77,9 @@ public class BodyMetricsController {
     @PutMapping("/{id}")
     public ResponseEntity<?> updateBodyMetric(@PathVariable Long id,
                                                @Valid @RequestBody UpdateBodyMetricResource resource) {
+        boolean owns = queryService.handle(new GetAllBodyMetricsQuery(currentUser.requireUserId()))
+                .stream().anyMatch(m -> id.equals(m.getId()));
+        if (!owns) return ResponseEntity.notFound().build();
         var command = UpdateBodyMetricCommandFromResourceAssembler.toCommandFromResource(id, resource);
         var result = commandService.handle(command);
         return ResponseEntityFromBodyMetricCommandResultAssembler.toResponseEntityFromUpdateResult(result);

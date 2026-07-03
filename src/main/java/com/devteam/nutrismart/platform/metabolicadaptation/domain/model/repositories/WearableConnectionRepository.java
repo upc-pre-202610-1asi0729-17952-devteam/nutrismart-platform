@@ -42,6 +42,15 @@ public interface WearableConnectionRepository {
     List<WearableConnection> findAllByUserId(Long userId);
 
     /**
+     * Retorna la conexión wearable de un usuario para un proveedor concreto.
+     *
+     * @param userId   identificador del usuario
+     * @param provider nombre del proveedor
+     * @return {@link Optional} con la conexión si existe, vacío en caso contrario
+     */
+    Optional<WearableConnection> findByUserIdAndProvider(Long userId, String provider);
+
+    /**
      * Persiste o actualiza una conexión wearable.
      *
      * @param wearableConnection agregado a guardar

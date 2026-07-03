@@ -15,6 +15,10 @@ public final class WearableConnectionPersistenceMapper {
         entity.setStatus(domain.getStatus());
         entity.setLastSyncedAt(domain.getLastSyncedAt());
         entity.setAuthorizedAt(domain.getAuthorizedAt());
+        entity.setAutoSyncEnabled(domain.isAutoSyncEnabled());
+        entity.setAccessToken(domain.getAccessToken());
+        entity.setRefreshToken(domain.getRefreshToken());
+        entity.setTokenExpiresAt(domain.getTokenExpiresAt());
         return entity;
     }
 
@@ -25,7 +29,11 @@ public final class WearableConnectionPersistenceMapper {
                 entity.getProvider(),
                 entity.getStatus(),
                 entity.getLastSyncedAt(),
-                entity.getAuthorizedAt()
+                entity.getAuthorizedAt(),
+                entity.isAutoSyncEnabled(),
+                entity.getAccessToken(),
+                entity.getRefreshToken(),
+                entity.getTokenExpiresAt()
         );
     }
 }

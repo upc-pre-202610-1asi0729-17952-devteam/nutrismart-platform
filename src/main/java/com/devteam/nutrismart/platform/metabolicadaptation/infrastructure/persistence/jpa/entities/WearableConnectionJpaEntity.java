@@ -38,4 +38,19 @@ public class WearableConnectionJpaEntity extends AuditableAbstractPersistenceEnt
 
     @Comment("Fecha y hora en que el usuario autorizó el acceso al dispositivo wearable")
     private Instant authorizedAt;
+
+    @Comment("Indica si la conexión debe re-sincronizarse automáticamente")
+    @Column(nullable = false)
+    private boolean autoSyncEnabled;
+
+    @Comment("Token de acceso OAuth del proveedor; nunca se expone en la API")
+    @Column(length = 2048)
+    private String accessToken;
+
+    @Comment("Token de refresco OAuth del proveedor; nunca se expone en la API")
+    @Column(length = 2048)
+    private String refreshToken;
+
+    @Comment("Instante de expiración del token de acceso del proveedor")
+    private Instant tokenExpiresAt;
 }
