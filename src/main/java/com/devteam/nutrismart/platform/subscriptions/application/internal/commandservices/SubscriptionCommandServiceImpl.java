@@ -9,10 +9,13 @@ import com.devteam.nutrismart.platform.subscriptions.application.commandservices
 import com.devteam.nutrismart.platform.subscriptions.application.commands.CreateSubscriptionCommand;
 import com.devteam.nutrismart.platform.subscriptions.application.commands.UpdateSubscriptionCommand;
 import com.devteam.nutrismart.platform.subscriptions.domain.model.aggregates.Subscription;
+import com.devteam.nutrismart.platform.subscriptions.domain.model.repositories.PaymentMethodRepository;
 import com.devteam.nutrismart.platform.subscriptions.domain.model.repositories.SubscriptionRepository;
 import com.devteam.nutrismart.platform.subscriptions.domain.model.valueobjects.SubscriptionStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
 
 /**
  * Implementación del servicio de comandos de suscripciones.
@@ -24,21 +27,37 @@ import org.springframework.transaction.annotation.Transactional;
 public class SubscriptionCommandServiceImpl implements SubscriptionCommandService {
 
     private final SubscriptionRepository subscriptionRepository;
+    private final PaymentMethodRepository paymentMethodRepository;
     private final UserCommandService userCommandService;
 
     public SubscriptionCommandServiceImpl(SubscriptionRepository subscriptionRepository,
+                                          PaymentMethodRepository paymentMethodRepository,
                                           UserCommandService userCommandService) {
         this.subscriptionRepository = subscriptionRepository;
+        this.paymentMethodRepository = paymentMethodRepository;
         this.userCommandService = userCommandService;
     }
 
     @Override
     public Result<Subscription, SubscriptionCommandFailure> handle(CreateSubscriptionCommand command) {
         try {
-            if (subscriptionRepository.findByUserIdAndStatus(command.userId(), SubscriptionStatus.ACTIVE).isPresent()) {
-                return Result.failure(new SubscriptionCommandFailure.AlreadyActive(command.userId()));
-            }
-            Subscription subscription = Subscription.create(command.userId(), command.plan());
+            // Upsert: si el usuario ya tiene una suscripción activa, un "create" se interpreta
+            // como un cambio de plan sobre esa misma suscripción (renovando el ciclo de
+            // facturación) en lugar de rechazarlo. Esto evita el 409 al cambiar de plan y
+            // hace la operación idempotente ante reintentos del cliente.
+            Subscription subscription = subscriptionRepository
+                    .findByUserIdAndStatus(command.userId(), SubscriptionStatus.ACTIVE)
+                    .map(active -> {
+                        active.update(command.plan(), SubscriptionStatus.ACTIVE,
+                                LocalDate.now(), LocalDate.now().plusMonths(1));
+                        return active;
+                    })
+                    .orElseGet(() -> Subscription.create(command.userId(), command.plan()));
+
+            // Sellar el Customer de Stripe del usuario (resuelto desde su método de pago) para
+            // dejarlo disponible en renovaciones/cambios de plan futuros, igual que NutriSense.
+            paymentMethodRepository.findAnyStripeCustomerIdByUserId(command.userId())
+                    .ifPresent(subscription::applyStripeCustomer);
             Subscription saved = subscriptionRepository.save(subscription);
             UserPlan userPlan = UserPlan.valueOf(command.plan().name());
             userCommandService.handle(new UpdateUserPlanCommand(command.userId(), userPlan));
@@ -56,6 +75,13 @@ public class SubscriptionCommandServiceImpl implements SubscriptionCommandServic
                         subscription.update(command.plan(), command.status(),
                                 command.billingCycleStart(), command.billingCycleEnd());
                         Subscription saved = subscriptionRepository.save(subscription);
+                        // Mantener sincronizado el plan del usuario en IAM cuando la suscripción
+                        // queda activa (cambio de plan vía PUT). En cancelaciones/expiraciones no
+                        // se toca el plan aquí; ese flujo lo gestiona la expiración del beneficio.
+                        if (saved.getStatus() == SubscriptionStatus.ACTIVE) {
+                            userCommandService.handle(new UpdateUserPlanCommand(
+                                    saved.getUserId(), UserPlan.valueOf(saved.getPlan().name())));
+                        }
                         return Result.<Subscription, SubscriptionCommandFailure>success(saved);
                     })
                     .orElse(Result.failure(new SubscriptionCommandFailure.NotFound(command.id())));
