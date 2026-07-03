@@ -60,5 +60,15 @@ public record UserResource(
         @Schema(description = "Date when the current goal was started", example = "2025-01-10")
         LocalDate goalStartedAt,
         @Schema(description = "Date when the subscription plan expires", example = "2025-12-31")
-        LocalDate planExpiresAt
+        LocalDate planExpiresAt,
+        @Schema(description = "Notification preference: daily meal-log reminder", example = "true")
+        Boolean notifDailyLogReminder,
+        @Schema(description = "Notification preference: weekly progress report", example = "true")
+        Boolean notifWeeklyProgressReport,
+        @Schema(description = "Notification preference: meal suggestions", example = "false")
+        Boolean notifMealSuggestions,
+        @Schema(description = "Notification preference: streak alerts", example = "true")
+        Boolean notifStreakAlerts,
+        @Schema(description = "Notification preference: marketing emails", example = "false")
+        Boolean notifMarketingEmails
 ) {}

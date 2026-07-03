@@ -5,6 +5,7 @@ import com.devteam.nutrismart.platform.iam.application.queryservices.UserQuerySe
 import com.devteam.nutrismart.platform.iam.interfaces.acl.IamContextFacade;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -30,6 +31,18 @@ public class IamContextFacadeImpl implements IamContextFacade {
                         u.getProteinTarget(),
                         u.getCarbsTarget(),
                         u.getFatTarget()
+                ));
+    }
+
+    @Override
+    public Optional<UserDietaryProfileData> getUserDietaryProfile(Long userId) {
+        return userQueryService.handle(new GetUserByIdQuery(userId))
+                .map(u -> new UserDietaryProfileData(
+                        u.getGoal() != null ? u.getGoal().name() : null,
+                        u.getRestrictions() == null
+                                ? List.of()
+                                : u.getRestrictions().stream().map(Enum::name).toList(),
+                        u.getDailyCalorieTarget()
                 ));
     }
 }
