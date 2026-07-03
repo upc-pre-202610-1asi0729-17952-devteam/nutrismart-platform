@@ -10,5 +10,6 @@ public record WearableConnectionResource(
         String provider,
         WearableStatus status,
         Instant lastSyncedAt,
-        Instant authorizedAt
+        Instant authorizedAt,
+        boolean autoSyncEnabled
 ) {}

@@ -14,36 +14,38 @@ public final class ResponseEntityFromWearableConnectionCommandResultAssembler {
     public static ResponseEntity<?> toResponseEntityFromCreateResult(Result<WearableConnection, WearableConnectionCommandFailure> result) {
         return result.fold(
                 entity -> ResponseEntity.status(201).body(WearableConnectionResourceFromEntityAssembler.toResourceFromEntity(entity)),
-                failure -> switch (failure) {
-                    case WearableConnectionCommandFailure.WearableConnectionNotFound f ->
-                            ResponseEntity.status(404).body(Map.of("message", "Wearable connection not found with id: " + f.id()));
-                    case WearableConnectionCommandFailure.InvalidData f ->
-                            ResponseEntity.status(400).body(Map.of("message", f.reason()));
-                }
+                ResponseEntityFromWearableConnectionCommandResultAssembler::toErrorResponse
         );
     }
 
     public static ResponseEntity<?> toResponseEntityFromUpdateResult(Result<WearableConnection, WearableConnectionCommandFailure> result) {
         return result.fold(
                 entity -> ResponseEntity.ok(WearableConnectionResourceFromEntityAssembler.toResourceFromEntity(entity)),
-                failure -> switch (failure) {
-                    case WearableConnectionCommandFailure.WearableConnectionNotFound f ->
-                            ResponseEntity.status(404).body(Map.of("message", "Wearable connection not found with id: " + f.id()));
-                    case WearableConnectionCommandFailure.InvalidData f ->
-                            ResponseEntity.status(400).body(Map.of("message", f.reason()));
-                }
+                ResponseEntityFromWearableConnectionCommandResultAssembler::toErrorResponse
         );
     }
 
     public static ResponseEntity<?> toResponseEntityFromDeleteResult(Result<Void, WearableConnectionCommandFailure> result) {
         return result.fold(
                 v -> ResponseEntity.noContent().build(),
-                failure -> switch (failure) {
-                    case WearableConnectionCommandFailure.WearableConnectionNotFound f ->
-                            ResponseEntity.status(404).body(Map.of("message", "Wearable connection not found with id: " + f.id()));
-                    case WearableConnectionCommandFailure.InvalidData f ->
-                            ResponseEntity.status(400).body(Map.of("message", f.reason()));
-                }
+                ResponseEntityFromWearableConnectionCommandResultAssembler::toErrorResponse
         );
+    }
+
+    /** Mapea cada variante de fallo a su respuesta HTTP correspondiente. */
+    private static ResponseEntity<?> toErrorResponse(WearableConnectionCommandFailure failure) {
+        return switch (failure) {
+            case WearableConnectionCommandFailure.WearableConnectionNotFound f ->
+                    ResponseEntity.status(404).body(Map.of("message", "Wearable connection not found with id: " + f.id()));
+            case WearableConnectionCommandFailure.InvalidData f ->
+                    ResponseEntity.status(400).body(Map.of("message", f.reason()));
+            case WearableConnectionCommandFailure.AlreadyConnected f ->
+                    ResponseEntity.status(409).body(Map.of("message",
+                            "User " + f.userId() + " is already connected to provider " + f.provider()));
+            case WearableConnectionCommandFailure.AuthorizationFailed f ->
+                    ResponseEntity.status(400).body(Map.of("message", "Authorization failed: " + f.reason()));
+            case WearableConnectionCommandFailure.SyncFailed f ->
+                    ResponseEntity.status(502).body(Map.of("message", "Sync failed: " + f.reason()));
+        };
     }
 }

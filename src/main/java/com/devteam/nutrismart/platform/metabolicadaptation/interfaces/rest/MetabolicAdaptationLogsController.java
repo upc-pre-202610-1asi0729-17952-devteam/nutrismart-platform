@@ -8,6 +8,7 @@ import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.resou
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.MetabolicAdaptationLogResourceFromEntityAssembler;
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.RecordMetabolicAdaptationCommandFromResourceAssembler;
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.ResponseEntityFromMetabolicAdaptationLogCommandResultAssembler;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -25,11 +26,14 @@ public class MetabolicAdaptationLogsController {
 
     private final MetabolicAdaptationLogCommandService commandService;
     private final MetabolicAdaptationLogQueryService queryService;
+    private final CurrentUserGuard currentUser;
 
     public MetabolicAdaptationLogsController(MetabolicAdaptationLogCommandService commandService,
-                                              MetabolicAdaptationLogQueryService queryService) {
+                                              MetabolicAdaptationLogQueryService queryService,
+                                              CurrentUserGuard currentUser) {
         this.commandService = commandService;
         this.queryService = queryService;
+        this.currentUser = currentUser;
     }
 
     @Operation(summary = "Get all metabolic adaptation logs", description = "Retrieves all metabolic adaptation log records, optionally filtered by userId")
@@ -41,7 +45,7 @@ public class MetabolicAdaptationLogsController {
     @GetMapping
     public ResponseEntity<List<MetabolicAdaptationLogResource>> getAllMetabolicAdaptationLogs(
             @RequestParam(required = false) Long userId) {
-        var logs = queryService.handle(new GetAllMetabolicAdaptationLogsQuery(userId)).stream()
+        var logs = queryService.handle(new GetAllMetabolicAdaptationLogsQuery(currentUser.scopeToOwner(userId))).stream()
                 .map(MetabolicAdaptationLogResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
         return ResponseEntity.ok(logs);
@@ -57,6 +61,7 @@ public class MetabolicAdaptationLogsController {
     @PostMapping
     public ResponseEntity<?> createMetabolicAdaptationLog(
             @Valid @RequestBody CreateMetabolicAdaptationLogResource resource) {
+        currentUser.ensureOwner(resource.userId());
         var command = RecordMetabolicAdaptationCommandFromResourceAssembler.toCommandFromResource(resource);
         var result = commandService.handle(command);
         return ResponseEntityFromMetabolicAdaptationLogCommandResultAssembler.toResponseEntityFromCreateResult(result);

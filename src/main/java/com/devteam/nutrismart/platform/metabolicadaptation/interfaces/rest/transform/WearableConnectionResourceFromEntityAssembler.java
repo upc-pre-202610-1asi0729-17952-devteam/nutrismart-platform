@@ -14,7 +14,8 @@ public final class WearableConnectionResourceFromEntityAssembler {
                 entity.getProvider(),
                 entity.getStatus(),
                 entity.getLastSyncedAt(),
-                entity.getAuthorizedAt()
+                entity.getAuthorizedAt(),
+                entity.isAutoSyncEnabled()
         );
     }
 }
