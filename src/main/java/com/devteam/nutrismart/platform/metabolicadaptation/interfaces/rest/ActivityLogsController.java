@@ -10,6 +10,7 @@ import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.resou
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.ActivityLogResourceFromEntityAssembler;
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.LogActivityCommandFromResourceAssembler;
 import com.devteam.nutrismart.platform.metabolicadaptation.interfaces.rest.transform.ResponseEntityFromActivityLogCommandResultAssembler;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -27,10 +28,13 @@ public class ActivityLogsController {
 
     private final ActivityLogCommandService commandService;
     private final ActivityLogQueryService queryService;
+    private final CurrentUserGuard currentUser;
 
-    public ActivityLogsController(ActivityLogCommandService commandService, ActivityLogQueryService queryService) {
+    public ActivityLogsController(ActivityLogCommandService commandService, ActivityLogQueryService queryService,
+                                  CurrentUserGuard currentUser) {
         this.commandService = commandService;
         this.queryService = queryService;
+        this.currentUser = currentUser;
     }
 
     @Operation(summary = "Get all activity logs", description = "Retrieves all activity log records, optionally filtered by userId")
@@ -42,7 +46,7 @@ public class ActivityLogsController {
     @GetMapping
     public ResponseEntity<List<ActivityLogResource>> getAllActivityLogs(
             @RequestParam(required = false) Long userId) {
-        var logs = queryService.handle(new GetAllActivityLogsQuery(userId)).stream()
+        var logs = queryService.handle(new GetAllActivityLogsQuery(currentUser.scopeToOwner(userId))).stream()
                 .map(ActivityLogResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
         return ResponseEntity.ok(logs);
@@ -57,6 +61,7 @@ public class ActivityLogsController {
     @GetMapping("/{id}")
     public ResponseEntity<ActivityLogResource> getActivityLogById(@PathVariable Long id) {
         return queryService.handle(new GetActivityLogByIdQuery(id))
+                .filter(log -> currentUser.isOwner(log.getUserId()))
                 .map(ActivityLogResourceFromEntityAssembler::toResourceFromEntity)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -71,6 +76,7 @@ public class ActivityLogsController {
     })
     @PostMapping
     public ResponseEntity<?> createActivityLog(@Valid @RequestBody CreateActivityLogResource resource) {
+        currentUser.ensureOwner(resource.userId());
         var command = LogActivityCommandFromResourceAssembler.toCommandFromResource(resource);
         var result = commandService.handle(command);
         return ResponseEntityFromActivityLogCommandResultAssembler.toResponseEntityFromCreateResult(result);
@@ -84,6 +90,8 @@ public class ActivityLogsController {
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteActivityLog(@PathVariable Long id) {
+        var owned = queryService.handle(new GetActivityLogByIdQuery(id));
+        if (owned.isEmpty() || !currentUser.isOwner(owned.get().getUserId())) return ResponseEntity.notFound().build();
         var command = new DeleteActivityLogCommand(id);
         var result = commandService.handle(command);
         return ResponseEntityFromActivityLogCommandResultAssembler.toResponseEntityFromDeleteResult(result);

@@ -2,35 +2,45 @@ package com.devteam.nutrismart.platform.metabolicadaptation.application.commands
 
 import com.devteam.nutrismart.platform.metabolicadaptation.application.commands.ConnectWearableCommand;
 import com.devteam.nutrismart.platform.metabolicadaptation.application.commands.DeleteWearableConnectionCommand;
-import com.devteam.nutrismart.platform.metabolicadaptation.application.commands.UpdateWearableConnectionCommand;
+import com.devteam.nutrismart.platform.metabolicadaptation.application.commands.SetWearableAutoSyncCommand;
+import com.devteam.nutrismart.platform.metabolicadaptation.application.commands.SyncWearableConnectionCommand;
 import com.devteam.nutrismart.platform.metabolicadaptation.domain.model.aggregates.WearableConnection;
 import com.devteam.nutrismart.platform.shared.application.result.Result;
 
 /**
  * Puerto de servicio de aplicación para los comandos de escritura del agregado {@code WearableConnection}.
- * Define las operaciones de conexión, actualización y desvinculación de dispositivos wearable.
+ * Define las operaciones de conexión (con OAuth), sincronización, preferencia de auto-sync y desvinculación.
  */
 public interface WearableConnectionCommandService {
     /**
-     * Procesa el comando para registrar la conexión de un dispositivo wearable.
+     * Conecta un dispositivo wearable: autoriza con el proveedor vía OAuth, persiste la conexión
+     * e importa el primer lote de actividad.
      *
-     * @param command comando con los datos de la nueva conexión
-     * @return {@code Result} con el agregado creado o el fallo correspondiente
+     * @param command comando con el usuario, el proveedor y el código OAuth
+     * @return {@code Result} con el agregado conectado o el fallo correspondiente
      */
     Result<WearableConnection, WearableConnectionCommandFailure> handle(ConnectWearableCommand command);
 
     /**
-     * Procesa el comando para actualizar el estado o la sincronización de una conexión wearable existente.
+     * Sincroniza manualmente los datos de actividad de una conexión wearable existente.
      *
-     * @param command comando con el identificador y los nuevos valores
+     * @param command comando con el identificador de la conexión a sincronizar
      * @return {@code Result} con el agregado actualizado o el fallo correspondiente
      */
-    Result<WearableConnection, WearableConnectionCommandFailure> handle(UpdateWearableConnectionCommand command);
+    Result<WearableConnection, WearableConnectionCommandFailure> handle(SyncWearableConnectionCommand command);
 
     /**
-     * Procesa el comando para eliminar una conexión wearable existente.
+     * Activa o desactiva la sincronización automática de una conexión wearable existente.
      *
-     * @param command comando con el identificador de la conexión a eliminar
+     * @param command comando con el identificador y el estado deseado de auto-sync
+     * @return {@code Result} con el agregado actualizado o el fallo correspondiente
+     */
+    Result<WearableConnection, WearableConnectionCommandFailure> handle(SetWearableAutoSyncCommand command);
+
+    /**
+     * Desvincula una conexión wearable existente.
+     *
+     * @param command comando con el identificador de la conexión a desvincular
      * @return {@code Result} vacío en caso de éxito o el fallo correspondiente
      */
     Result<Void, WearableConnectionCommandFailure> handle(DeleteWearableConnectionCommand command);

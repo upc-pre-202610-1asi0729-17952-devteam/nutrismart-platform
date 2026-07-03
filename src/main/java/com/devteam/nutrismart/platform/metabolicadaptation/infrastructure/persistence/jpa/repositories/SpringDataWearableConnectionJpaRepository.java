@@ -26,4 +26,13 @@ public interface SpringDataWearableConnectionJpaRepository extends JpaRepository
      * @return lista de entidades del usuario
      */
     List<WearableConnectionJpaEntity> findAllByUserId(Long userId);
+
+    /**
+     * Retorna la conexión wearable de un usuario para un proveedor concreto.
+     *
+     * @param userId   identificador del usuario
+     * @param provider nombre del proveedor
+     * @return {@link Optional} con la entidad si existe
+     */
+    Optional<WearableConnectionJpaEntity> findByUserIdAndProvider(Long userId, String provider);
 }
