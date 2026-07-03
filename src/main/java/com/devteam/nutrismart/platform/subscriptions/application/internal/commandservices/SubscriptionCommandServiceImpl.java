@@ -10,8 +10,11 @@ import com.devteam.nutrismart.platform.subscriptions.application.commands.Create
 import com.devteam.nutrismart.platform.subscriptions.application.commands.UpdateSubscriptionCommand;
 import com.devteam.nutrismart.platform.subscriptions.domain.model.aggregates.Subscription;
 import com.devteam.nutrismart.platform.subscriptions.domain.model.repositories.PaymentMethodRepository;
+import com.devteam.nutrismart.platform.subscriptions.domain.model.events.SubscriptionActivatedEvent;
+import com.devteam.nutrismart.platform.subscriptions.domain.model.events.SubscriptionCancelledEvent;
 import com.devteam.nutrismart.platform.subscriptions.domain.model.repositories.SubscriptionRepository;
 import com.devteam.nutrismart.platform.subscriptions.domain.model.valueobjects.SubscriptionStatus;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,13 +32,16 @@ public class SubscriptionCommandServiceImpl implements SubscriptionCommandServic
     private final SubscriptionRepository subscriptionRepository;
     private final PaymentMethodRepository paymentMethodRepository;
     private final UserCommandService userCommandService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public SubscriptionCommandServiceImpl(SubscriptionRepository subscriptionRepository,
                                           PaymentMethodRepository paymentMethodRepository,
-                                          UserCommandService userCommandService) {
+                                          UserCommandService userCommandService,
+                                          ApplicationEventPublisher eventPublisher) {
         this.subscriptionRepository = subscriptionRepository;
         this.paymentMethodRepository = paymentMethodRepository;
         this.userCommandService = userCommandService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -61,6 +67,8 @@ public class SubscriptionCommandServiceImpl implements SubscriptionCommandServic
             Subscription saved = subscriptionRepository.save(subscription);
             UserPlan userPlan = UserPlan.valueOf(command.plan().name());
             userCommandService.handle(new UpdateUserPlanCommand(command.userId(), userPlan));
+            eventPublisher.publishEvent(SubscriptionActivatedEvent.of(
+                    saved.getUserId(), saved.getId(), saved.getPlan().name()));
             return Result.success(saved);
         } catch (Exception ex) {
             return Result.failure(new SubscriptionCommandFailure.InvalidData(ex.getMessage()));
@@ -81,6 +89,11 @@ public class SubscriptionCommandServiceImpl implements SubscriptionCommandServic
                         if (saved.getStatus() == SubscriptionStatus.ACTIVE) {
                             userCommandService.handle(new UpdateUserPlanCommand(
                                     saved.getUserId(), UserPlan.valueOf(saved.getPlan().name())));
+                            eventPublisher.publishEvent(SubscriptionActivatedEvent.of(
+                                    saved.getUserId(), saved.getId(), saved.getPlan().name()));
+                        } else {
+                            eventPublisher.publishEvent(SubscriptionCancelledEvent.of(
+                                    saved.getUserId(), saved.getId(), saved.getPlan().name()));
                         }
                         return Result.<Subscription, SubscriptionCommandFailure>success(saved);
                     })
