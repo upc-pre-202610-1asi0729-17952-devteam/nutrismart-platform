@@ -49,4 +49,9 @@ public class PantryItemPersistenceAdapter implements PantryItemRepository {
     public boolean existsById(Long id) {
         return springDataRepo.existsById(id);
     }
+
+    @Override
+    public boolean existsByUserIdAndFoodId(Long userId, Long foodId) {
+        return springDataRepo.existsByUserIdAndFoodId(userId, foodId);
+    }
 }
