@@ -19,6 +19,9 @@ public final class ResponseEntityFromPantryItemCommandResultAssembler {
                             ResponseEntity.status(404).body(Map.of("message", "Pantry item not found: " + f.id()));
                     case PantryItemCommandFailure.InvalidData f ->
                             ResponseEntity.status(400).body(Map.of("message", f.reason()));
+                    case PantryItemCommandFailure.DuplicateItem f ->
+                            ResponseEntity.status(409).body(Map.of("message",
+                                    "Pantry item already exists for foodId " + f.foodId()));
                 }
         );
     }
@@ -31,6 +34,9 @@ public final class ResponseEntityFromPantryItemCommandResultAssembler {
                             ResponseEntity.status(404).body(Map.of("message", "Pantry item not found: " + f.id()));
                     case PantryItemCommandFailure.InvalidData f ->
                             ResponseEntity.status(400).body(Map.of("message", f.reason()));
+                    case PantryItemCommandFailure.DuplicateItem f ->
+                            ResponseEntity.status(409).body(Map.of("message",
+                                    "Pantry item already exists for foodId " + f.foodId()));
                 }
         );
     }

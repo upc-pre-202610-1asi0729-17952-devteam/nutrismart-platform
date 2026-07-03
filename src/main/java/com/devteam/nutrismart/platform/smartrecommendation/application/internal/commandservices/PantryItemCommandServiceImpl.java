@@ -7,6 +7,7 @@ import com.devteam.nutrismart.platform.smartrecommendation.application.commands.
 import com.devteam.nutrismart.platform.smartrecommendation.domain.model.aggregates.PantryItem;
 import com.devteam.nutrismart.platform.smartrecommendation.domain.model.repositories.PantryItemRepository;
 import com.devteam.nutrismart.platform.shared.application.result.Result;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,9 +35,16 @@ public class PantryItemCommandServiceImpl implements PantryItemCommandService {
 
     @Override
     public Result<PantryItem, PantryItemCommandFailure> handle(AddPantryItemCommand command) {
+        if (pantryItemRepository.existsByUserIdAndFoodId(command.userId(), command.foodId())) {
+            return Result.failure(new PantryItemCommandFailure.DuplicateItem(command.userId(), command.foodId()));
+        }
         try {
             PantryItem item = PantryItem.create(command.userId(), command.foodId(), command.quantityG());
             return Result.success(pantryItemRepository.save(item));
+        } catch (DataIntegrityViolationException ex) {
+            // Red de seguridad ante condiciones de carrera: la restricción única (userId, foodId)
+            // rechaza el duplicado aunque el chequeo previo no lo detectara.
+            return Result.failure(new PantryItemCommandFailure.DuplicateItem(command.userId(), command.foodId()));
         } catch (Exception ex) {
             return Result.failure(new PantryItemCommandFailure.InvalidData(ex.getMessage()));
         }

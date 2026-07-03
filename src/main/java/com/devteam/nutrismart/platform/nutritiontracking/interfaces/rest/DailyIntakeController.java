@@ -1,7 +1,6 @@
 package com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest;
 
 import com.devteam.nutrismart.platform.nutritiontracking.application.commandservices.DailyIntakeCommandService;
-import com.devteam.nutrismart.platform.nutritiontracking.application.queries.GetAllDailyIntakesQuery;
 import com.devteam.nutrismart.platform.nutritiontracking.application.queries.GetDailyIntakeByIdQuery;
 import com.devteam.nutrismart.platform.nutritiontracking.application.queries.GetDailyIntakeByUserIdAndDateQuery;
 import com.devteam.nutrismart.platform.nutritiontracking.application.queries.GetDailyIntakeByUserIdQuery;
@@ -12,6 +11,7 @@ import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.resourc
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.transform.DailyIntakeCommandFromResourceAssembler;
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.transform.DailyIntakeResourceFromEntityAssembler;
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.transform.ResponseEntityFromDailyIntakeCommandResultAssembler;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -37,11 +37,14 @@ public class DailyIntakeController {
 
     private final DailyIntakeCommandService commandService;
     private final DailyIntakeQueryService queryService;
+    private final CurrentUserGuard currentUser;
 
     public DailyIntakeController(DailyIntakeCommandService commandService,
-                                  DailyIntakeQueryService queryService) {
+                                  DailyIntakeQueryService queryService,
+                                  CurrentUserGuard currentUser) {
         this.commandService = commandService;
         this.queryService = queryService;
+        this.currentUser = currentUser;
     }
 
     @Operation(
@@ -63,19 +66,16 @@ public class DailyIntakeController {
             @RequestParam(required = false) Long userId,
             @Parameter(description = "Date to filter records in ISO-8601 format (yyyy-MM-dd)", example = "2024-06-15")
             @RequestParam(required = false) String date) {
+        Long scopedUserId = currentUser.scopeToOwner(userId);
         List<DailyIntakeResource> resources;
-        if (userId != null && date != null) {
+        if (date != null) {
             LocalDate localDate = LocalDate.parse(date);
-            resources = queryService.handle(new GetDailyIntakeByUserIdAndDateQuery(userId, localDate))
+            resources = queryService.handle(new GetDailyIntakeByUserIdAndDateQuery(scopedUserId, localDate))
                     .map(DailyIntakeResourceFromEntityAssembler::toResource)
                     .map(List::of)
                     .orElse(List.of());
-        } else if (userId != null) {
-            resources = queryService.handle(new GetDailyIntakeByUserIdQuery(userId)).stream()
-                    .map(DailyIntakeResourceFromEntityAssembler::toResource)
-                    .collect(Collectors.toList());
         } else {
-            resources = queryService.handle(new GetAllDailyIntakesQuery()).stream()
+            resources = queryService.handle(new GetDailyIntakeByUserIdQuery(scopedUserId)).stream()
                     .map(DailyIntakeResourceFromEntityAssembler::toResource)
                     .collect(Collectors.toList());
         }
@@ -98,6 +98,7 @@ public class DailyIntakeController {
             @Parameter(description = "Unique identifier of the daily intake record", example = "10")
             @PathVariable Long id) {
         return queryService.handle(new GetDailyIntakeByIdQuery(id))
+                .filter(intake -> currentUser.isOwner(intake.getUserId()))
                 .map(DailyIntakeResourceFromEntityAssembler::toResource)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -118,6 +119,7 @@ public class DailyIntakeController {
     })
     @PostMapping
     public ResponseEntity<DailyIntakeResource> create(@RequestBody CreateDailyIntakeResource resource) {
+        currentUser.ensureOwner(resource.userId());
         var command = DailyIntakeCommandFromResourceAssembler.toCreateDailyIntakeCommand(resource);
         var result = commandService.handle(command);
         return ResponseEntityFromDailyIntakeCommandResultAssembler.toResponseEntity(result, HttpStatus.CREATED);
@@ -140,6 +142,10 @@ public class DailyIntakeController {
             @Parameter(description = "Unique identifier of the daily intake record to update", example = "10")
             @PathVariable Long id,
             @RequestBody UpdateDailyIntakeResource resource) {
+        var existing = queryService.handle(new GetDailyIntakeByIdQuery(id));
+        if (existing.isEmpty() || !currentUser.isOwner(existing.get().getUserId())) {
+            return ResponseEntity.notFound().<DailyIntakeResource>build();
+        }
         var command = DailyIntakeCommandFromResourceAssembler.toUpdateDailyIntakeCommand(id, resource);
         var result = commandService.handle(command);
         return ResponseEntityFromDailyIntakeCommandResultAssembler.toResponseEntity(result, HttpStatus.OK);

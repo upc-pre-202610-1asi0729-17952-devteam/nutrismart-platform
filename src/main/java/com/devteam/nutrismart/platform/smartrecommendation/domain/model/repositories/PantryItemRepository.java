@@ -56,4 +56,13 @@ public interface PantryItemRepository {
      * @return {@code true} si existe, {@code false} en caso contrario
      */
     boolean existsById(Long id);
+
+    /**
+     * Comprueba si el usuario ya tiene un ítem de despensa para el alimento indicado.
+     *
+     * @param userId identificador del usuario
+     * @param foodId identificador del alimento
+     * @return {@code true} si ya existe, {@code false} en caso contrario
+     */
+    boolean existsByUserIdAndFoodId(Long userId, Long foodId);
 }

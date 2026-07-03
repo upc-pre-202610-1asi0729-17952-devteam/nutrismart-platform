@@ -11,6 +11,7 @@ import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.trans
 import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.transform.ResponseEntityFromTravelContextCommandResultAssembler;
 import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.transform.TravelContextResourceFromEntityAssembler;
 import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.transform.UpdateTravelContextCommandFromResourceAssembler;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -28,11 +29,14 @@ public class TravelContextsController {
 
     private final TravelContextCommandService commandService;
     private final TravelContextQueryService queryService;
+    private final CurrentUserGuard currentUser;
 
     public TravelContextsController(TravelContextCommandService commandService,
-                                    TravelContextQueryService queryService) {
+                                    TravelContextQueryService queryService,
+                                    CurrentUserGuard currentUser) {
         this.commandService = commandService;
         this.queryService = queryService;
+        this.currentUser = currentUser;
     }
 
     @Operation(summary = "Get all travel contexts", description = "Retrieves all travel context records, optionally filtered by userId")
@@ -43,7 +47,7 @@ public class TravelContextsController {
     })
     @GetMapping
     public ResponseEntity<List<TravelContextResource>> getAll(@RequestParam(required = false) Long userId) {
-        var contexts = queryService.handle(new GetAllTravelContextsQuery(userId))
+        var contexts = queryService.handle(new GetAllTravelContextsQuery(currentUser.scopeToOwner(userId)))
                 .stream()
                 .map(TravelContextResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
@@ -59,6 +63,7 @@ public class TravelContextsController {
     @GetMapping("/{id}")
     public ResponseEntity<TravelContextResource> getById(@PathVariable Long id) {
         return queryService.handle(new GetTravelContextByIdQuery(id))
+                .filter(context -> currentUser.isOwner(context.getUserId()))
                 .map(TravelContextResourceFromEntityAssembler::toResourceFromEntity)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -73,6 +78,7 @@ public class TravelContextsController {
     })
     @PostMapping
     public ResponseEntity<?> create(@Valid @RequestBody CreateTravelContextResource resource) {
+        currentUser.ensureOwner(resource.userId());
         var command = CreateTravelContextCommandFromResourceAssembler.toCommandFromResource(resource);
         var result = commandService.handle(command);
         return ResponseEntityFromTravelContextCommandResultAssembler.toResponseEntityFromCreateResult(result);
@@ -87,6 +93,8 @@ public class TravelContextsController {
     })
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable Long id, @Valid @RequestBody UpdateTravelContextResource resource) {
+        var owned = queryService.handle(new GetTravelContextByIdQuery(id));
+        if (owned.isEmpty() || !currentUser.isOwner(owned.get().getUserId())) return ResponseEntity.notFound().build();
         var command = UpdateTravelContextCommandFromResourceAssembler.toCommandFromResource(id, resource);
         var result = commandService.handle(command);
         return ResponseEntityFromTravelContextCommandResultAssembler.toResponseEntityFromUpdateResult(result);

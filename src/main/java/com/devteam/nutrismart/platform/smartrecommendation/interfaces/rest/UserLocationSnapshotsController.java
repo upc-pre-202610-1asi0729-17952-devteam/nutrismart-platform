@@ -10,6 +10,7 @@ import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.resou
 import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.transform.CreateLocationSnapshotCommandFromResourceAssembler;
 import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.transform.LocationSnapshotResourceFromEntityAssembler;
 import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.transform.ResponseEntityFromLocationSnapshotCommandResultAssembler;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -27,11 +28,14 @@ public class UserLocationSnapshotsController {
 
     private final LocationSnapshotCommandService commandService;
     private final LocationSnapshotQueryService queryService;
+    private final CurrentUserGuard currentUser;
 
     public UserLocationSnapshotsController(LocationSnapshotCommandService commandService,
-                                           LocationSnapshotQueryService queryService) {
+                                           LocationSnapshotQueryService queryService,
+                                           CurrentUserGuard currentUser) {
         this.commandService = commandService;
         this.queryService = queryService;
+        this.currentUser = currentUser;
     }
 
     @Operation(summary = "Get all user location snapshots", description = "Retrieves all location snapshots. Supports filtering by userId and sorting/limiting parameters. If userId, sort=recordedAt, order=desc and limit=1 are provided, returns only the most recent snapshot.")
@@ -47,13 +51,14 @@ public class UserLocationSnapshotsController {
             @RequestParam(name = "_order", required = false) String order,
             @RequestParam(name = "_limit", required = false) Integer limit) {
 
-        if (userId != null && "recordedAt".equals(sort) && "desc".equals(order) && Integer.valueOf(1).equals(limit)) {
-            return queryService.handle(new GetLastLocationSnapshotByUserIdQuery(userId))
+        Long scopedUserId = currentUser.scopeToOwner(userId);
+        if ("recordedAt".equals(sort) && "desc".equals(order) && Integer.valueOf(1).equals(limit)) {
+            return queryService.handle(new GetLastLocationSnapshotByUserIdQuery(scopedUserId))
                     .map(snapshot -> ResponseEntity.ok(List.of(LocationSnapshotResourceFromEntityAssembler.toResourceFromEntity(snapshot))))
                     .orElse(ResponseEntity.ok(List.of()));
         }
 
-        var snapshots = queryService.handle(new GetAllLocationSnapshotsQuery(userId))
+        var snapshots = queryService.handle(new GetAllLocationSnapshotsQuery(scopedUserId))
                 .stream()
                 .map(LocationSnapshotResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
@@ -69,6 +74,7 @@ public class UserLocationSnapshotsController {
     @GetMapping("/{id}")
     public ResponseEntity<LocationSnapshotResource> getById(@PathVariable Long id) {
         return queryService.handle(new GetLocationSnapshotByIdQuery(id))
+                .filter(snapshot -> currentUser.isOwner(snapshot.getUserId()))
                 .map(LocationSnapshotResourceFromEntityAssembler::toResourceFromEntity)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -83,6 +89,7 @@ public class UserLocationSnapshotsController {
     })
     @PostMapping
     public ResponseEntity<?> create(@Valid @RequestBody CreateLocationSnapshotResource resource) {
+        currentUser.ensureOwner(resource.userId());
         var command = CreateLocationSnapshotCommandFromResourceAssembler.toCommandFromResource(resource);
         var result = commandService.handle(command);
         return ResponseEntityFromLocationSnapshotCommandResultAssembler.toResponseEntityFromCreateResult(result);
