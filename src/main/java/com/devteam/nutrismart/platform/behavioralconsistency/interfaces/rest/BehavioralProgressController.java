@@ -12,6 +12,7 @@ import com.devteam.nutrismart.platform.behavioralconsistency.interfaces.rest.tra
 import com.devteam.nutrismart.platform.behavioralconsistency.interfaces.rest.transform.CreateBehavioralProgressCommandFromResourceAssembler;
 import com.devteam.nutrismart.platform.behavioralconsistency.interfaces.rest.transform.ResponseEntityFromBehavioralProgressCommandResultAssembler;
 import com.devteam.nutrismart.platform.behavioralconsistency.interfaces.rest.transform.UpdateBehavioralProgressCommandFromResourceAssembler;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -34,11 +35,14 @@ public class BehavioralProgressController {
 
     private final BehavioralProgressCommandService commandService;
     private final BehavioralProgressQueryService queryService;
+    private final CurrentUserGuard currentUser;
 
     public BehavioralProgressController(BehavioralProgressCommandService commandService,
-                                        BehavioralProgressQueryService queryService) {
+                                        BehavioralProgressQueryService queryService,
+                                        CurrentUserGuard currentUser) {
         this.commandService = commandService;
         this.queryService = queryService;
+        this.currentUser = currentUser;
     }
 
     @Operation(summary = "Get all behavioral progress records", description = "Returns all behavioral progress records. Optionally filters by userId.")
@@ -49,7 +53,7 @@ public class BehavioralProgressController {
     public ResponseEntity<List<BehavioralProgressResource>> getAll(
             @Parameter(description = "Optional user ID to filter results", example = "42")
             @RequestParam(required = false) Long userId) {
-        var results = queryService.handle(new GetAllBehavioralProgressQuery(userId)).stream()
+        var results = queryService.handle(new GetAllBehavioralProgressQuery(currentUser.scopeToOwner(userId))).stream()
                 .map(BehavioralProgressResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
         return ResponseEntity.ok(results);
@@ -65,6 +69,7 @@ public class BehavioralProgressController {
             @Parameter(description = "Unique identifier of the behavioral progress record", example = "1")
             @PathVariable Long id) {
         return queryService.handle(new GetBehavioralProgressByIdQuery(id))
+                .filter(progress -> currentUser.isOwner(progress.getUserId()))
                 .map(BehavioralProgressResourceFromEntityAssembler::toResourceFromEntity)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -77,6 +82,7 @@ public class BehavioralProgressController {
     })
     @PostMapping
     public ResponseEntity<?> create(@Valid @RequestBody CreateBehavioralProgressResource resource) {
+        currentUser.ensureOwner(resource.userId());
         var command = CreateBehavioralProgressCommandFromResourceAssembler.toCommandFromResource(resource);
         var result = commandService.handle(command);
         return ResponseEntityFromBehavioralProgressCommandResultAssembler.toResponseEntityFromCreateResult(result);
@@ -93,6 +99,8 @@ public class BehavioralProgressController {
             @Parameter(description = "Unique identifier of the behavioral progress record", example = "1")
             @PathVariable Long id,
             @Valid @RequestBody UpdateBehavioralProgressResource resource) {
+        var owned = queryService.handle(new GetBehavioralProgressByIdQuery(id));
+        if (owned.isEmpty() || !currentUser.isOwner(owned.get().getUserId())) return ResponseEntity.notFound().build();
         var command = UpdateBehavioralProgressCommandFromResourceAssembler.toCommandFromResource(id, resource);
         var result = commandService.handle(command);
         return ResponseEntityFromBehavioralProgressCommandResultAssembler.toResponseEntityFromUpdateResult(result);

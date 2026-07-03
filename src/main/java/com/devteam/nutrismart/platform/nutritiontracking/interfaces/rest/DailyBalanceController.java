@@ -1,11 +1,11 @@
 package com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest;
 
-import com.devteam.nutrismart.platform.nutritiontracking.application.queries.GetAllDailyIntakesQuery;
 import com.devteam.nutrismart.platform.nutritiontracking.application.queries.GetDailyIntakeByUserIdAndDateQuery;
 import com.devteam.nutrismart.platform.nutritiontracking.application.queries.GetDailyIntakeByUserIdQuery;
 import com.devteam.nutrismart.platform.nutritiontracking.application.queryservices.DailyIntakeQueryService;
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.resources.DailyIntakeResource;
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.transform.DailyIntakeResourceFromEntityAssembler;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -29,9 +29,11 @@ import java.util.stream.Collectors;
 public class DailyBalanceController {
 
     private final DailyIntakeQueryService queryService;
+    private final CurrentUserGuard currentUser;
 
-    public DailyBalanceController(DailyIntakeQueryService queryService) {
+    public DailyBalanceController(DailyIntakeQueryService queryService, CurrentUserGuard currentUser) {
         this.queryService = queryService;
+        this.currentUser = currentUser;
     }
 
     @Operation(
@@ -54,19 +56,16 @@ public class DailyBalanceController {
             @RequestParam(required = false) Long userId,
             @Parameter(description = "Date to filter records in ISO-8601 format (yyyy-MM-dd)", example = "2024-06-15")
             @RequestParam(required = false) String date) {
+        Long scopedUserId = currentUser.scopeToOwner(userId);
         List<DailyIntakeResource> resources;
-        if (userId != null && date != null) {
+        if (date != null) {
             LocalDate localDate = LocalDate.parse(date);
-            resources = queryService.handle(new GetDailyIntakeByUserIdAndDateQuery(userId, localDate))
+            resources = queryService.handle(new GetDailyIntakeByUserIdAndDateQuery(scopedUserId, localDate))
                     .map(DailyIntakeResourceFromEntityAssembler::toResource)
                     .map(List::of)
                     .orElse(List.of());
-        } else if (userId != null) {
-            resources = queryService.handle(new GetDailyIntakeByUserIdQuery(userId)).stream()
-                    .map(DailyIntakeResourceFromEntityAssembler::toResource)
-                    .collect(Collectors.toList());
         } else {
-            resources = queryService.handle(new GetAllDailyIntakesQuery()).stream()
+            resources = queryService.handle(new GetDailyIntakeByUserIdQuery(scopedUserId)).stream()
                     .map(DailyIntakeResourceFromEntityAssembler::toResource)
                     .collect(Collectors.toList());
         }

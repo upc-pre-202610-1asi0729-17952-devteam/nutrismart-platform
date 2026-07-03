@@ -11,6 +11,7 @@ import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.trans
 import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.transform.RecommendationSessionResourceFromEntityAssembler;
 import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.transform.ResponseEntityFromRecommendationSessionCommandResultAssembler;
 import com.devteam.nutrismart.platform.smartrecommendation.interfaces.rest.transform.UpdateRecommendationSessionCommandFromResourceAssembler;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -28,11 +29,14 @@ public class RecommendationSessionsController {
 
     private final RecommendationSessionCommandService commandService;
     private final RecommendationSessionQueryService queryService;
+    private final CurrentUserGuard currentUser;
 
     public RecommendationSessionsController(RecommendationSessionCommandService commandService,
-                                            RecommendationSessionQueryService queryService) {
+                                            RecommendationSessionQueryService queryService,
+                                            CurrentUserGuard currentUser) {
         this.commandService = commandService;
         this.queryService = queryService;
+        this.currentUser = currentUser;
     }
 
     @Operation(summary = "Get all recommendation sessions", description = "Retrieves all recommendation sessions, optionally filtered by userId and/or active status")
@@ -45,7 +49,7 @@ public class RecommendationSessionsController {
     public ResponseEntity<List<RecommendationSessionResource>> getAll(
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) Boolean isActive) {
-        var sessions = queryService.handle(new GetAllRecommendationSessionsQuery(userId, isActive))
+        var sessions = queryService.handle(new GetAllRecommendationSessionsQuery(currentUser.scopeToOwner(userId), isActive))
                 .stream()
                 .map(RecommendationSessionResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
@@ -61,6 +65,7 @@ public class RecommendationSessionsController {
     @GetMapping("/{id}")
     public ResponseEntity<RecommendationSessionResource> getById(@PathVariable Long id) {
         return queryService.handle(new GetRecommendationSessionByIdQuery(id))
+                .filter(session -> currentUser.isOwner(session.getUserId()))
                 .map(RecommendationSessionResourceFromEntityAssembler::toResourceFromEntity)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -75,6 +80,7 @@ public class RecommendationSessionsController {
     })
     @PostMapping
     public ResponseEntity<?> create(@Valid @RequestBody CreateRecommendationSessionResource resource) {
+        currentUser.ensureOwner(resource.userId());
         var command = CreateRecommendationSessionCommandFromResourceAssembler.toCommandFromResource(resource);
         var result = commandService.handle(command);
         return ResponseEntityFromRecommendationSessionCommandResultAssembler.toResponseEntityFromCreateResult(result);
@@ -89,6 +95,8 @@ public class RecommendationSessionsController {
     })
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable Long id, @Valid @RequestBody UpdateRecommendationSessionResource resource) {
+        var owned = queryService.handle(new GetRecommendationSessionByIdQuery(id));
+        if (owned.isEmpty() || !currentUser.isOwner(owned.get().getUserId())) return ResponseEntity.notFound().build();
         var command = UpdateRecommendationSessionCommandFromResourceAssembler.toCommandFromResource(id, resource);
         var result = commandService.handle(command);
         return ResponseEntityFromRecommendationSessionCommandResultAssembler.toResponseEntityFromUpdateResult(result);

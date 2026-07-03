@@ -8,6 +8,7 @@ import com.devteam.nutrismart.platform.analytics.application.queryservices.Analy
 import com.devteam.nutrismart.platform.analytics.interfaces.rest.resources.AnalyticsResource;
 import com.devteam.nutrismart.platform.analytics.interfaces.rest.resources.UpdateDashboardResource;
 import com.devteam.nutrismart.platform.analytics.interfaces.rest.transform.AnalyticsResourceFromEntityAssembler;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -28,10 +29,13 @@ public class AnalyticsController {
 
     private final AnalyticsQueryService queryService;
     private final AnalyticsCommandService commandService;
+    private final CurrentUserGuard currentUser;
 
-    public AnalyticsController(AnalyticsQueryService queryService, AnalyticsCommandService commandService) {
+    public AnalyticsController(AnalyticsQueryService queryService, AnalyticsCommandService commandService,
+                              CurrentUserGuard currentUser) {
         this.queryService = queryService;
         this.commandService = commandService;
+        this.currentUser = currentUser;
     }
 
     @Operation(summary = "Get analytics dashboard by user ID",
@@ -45,6 +49,7 @@ public class AnalyticsController {
     public ResponseEntity<AnalyticsResource> getDashboard(
             @Parameter(description = "Unique identifier of the user", example = "1")
             @PathVariable Long userId) {
+        currentUser.ensureOwner(userId);
         return queryService.handle(new GetDashboardByUserIdQuery(userId))
                 .map(AnalyticsResourceFromEntityAssembler::toResourceFromEntity)
                 .map(ResponseEntity::ok)
@@ -61,6 +66,7 @@ public class AnalyticsController {
     })
     @PostMapping("/dashboard/update")
     public ResponseEntity<?> updateDashboard(@RequestBody UpdateDashboardResource resource) {
+        currentUser.ensureOwner(resource.userId());
         var command = new UpdateDailyDashboardCommand(resource.userId(), resource.date());
         return commandService.handle(command).fold(
                 analytics -> ResponseEntity.ok(AnalyticsResourceFromEntityAssembler.toResourceFromEntity(analytics)),

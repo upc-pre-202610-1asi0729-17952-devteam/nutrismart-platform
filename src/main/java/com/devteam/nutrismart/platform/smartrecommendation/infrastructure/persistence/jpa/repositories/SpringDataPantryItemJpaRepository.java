@@ -8,4 +8,6 @@ import java.util.List;
 public interface SpringDataPantryItemJpaRepository extends JpaRepository<PantryItemJpaEntity, Long> {
 
     List<PantryItemJpaEntity> findByUserId(Long userId);
+
+    boolean existsByUserIdAndFoodId(Long userId, Long foodId);
 }
