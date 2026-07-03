@@ -1,12 +1,15 @@
 package com.devteam.nutrismart.platform.behavioralconsistency.application.internal.commandservices;
 
 import com.devteam.nutrismart.platform.behavioralconsistency.application.commands.CreateBehavioralProgressCommand;
+import com.devteam.nutrismart.platform.behavioralconsistency.application.commands.RegisterSuccessfulDayCommand;
 import com.devteam.nutrismart.platform.behavioralconsistency.application.commands.UpdateBehavioralProgressCommand;
 import com.devteam.nutrismart.platform.behavioralconsistency.application.commandservices.BehavioralProgressCommandFailure;
 import com.devteam.nutrismart.platform.behavioralconsistency.application.commandservices.BehavioralProgressCommandService;
 import com.devteam.nutrismart.platform.behavioralconsistency.domain.model.aggregates.BehavioralProgress;
+import com.devteam.nutrismart.platform.behavioralconsistency.domain.model.events.SuccessfulDayRegisteredEvent;
 import com.devteam.nutrismart.platform.behavioralconsistency.domain.model.repositories.BehavioralProgressRepository;
 import com.devteam.nutrismart.platform.shared.application.result.Result;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,9 +25,12 @@ import java.time.LocalDate;
 public class BehavioralProgressCommandServiceImpl implements BehavioralProgressCommandService {
 
     private final BehavioralProgressRepository repository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public BehavioralProgressCommandServiceImpl(BehavioralProgressRepository repository) {
+    public BehavioralProgressCommandServiceImpl(BehavioralProgressRepository repository,
+                                                ApplicationEventPublisher eventPublisher) {
         this.repository = repository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -59,6 +65,23 @@ public class BehavioralProgressCommandServiceImpl implements BehavioralProgressC
                         return Result.<BehavioralProgress, BehavioralProgressCommandFailure>success(saved);
                     })
                     .orElse(Result.failure(new BehavioralProgressCommandFailure.BehavioralProgressNotFound(command.id())));
+        } catch (Exception ex) {
+            return Result.failure(new BehavioralProgressCommandFailure.InvalidData(ex.getMessage()));
+        }
+    }
+
+    @Override
+    public Result<BehavioralProgress, BehavioralProgressCommandFailure> handle(RegisterSuccessfulDayCommand command) {
+        try {
+            return repository.findByUserId(command.userId())
+                    .map(progress -> {
+                        progress.registerSuccessfulDay(command.date());
+                        var saved = repository.save(progress);
+                        eventPublisher.publishEvent(SuccessfulDayRegisteredEvent.of(
+                                saved.getUserId(), command.date(), saved.getStreak()));
+                        return Result.<BehavioralProgress, BehavioralProgressCommandFailure>success(saved);
+                    })
+                    .orElse(Result.failure(new BehavioralProgressCommandFailure.BehavioralProgressNotFound(command.userId())));
         } catch (Exception ex) {
             return Result.failure(new BehavioralProgressCommandFailure.InvalidData(ex.getMessage()));
         }

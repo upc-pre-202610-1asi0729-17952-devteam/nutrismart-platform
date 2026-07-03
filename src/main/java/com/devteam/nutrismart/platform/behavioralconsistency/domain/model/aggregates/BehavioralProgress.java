@@ -106,6 +106,23 @@ public class BehavioralProgress {
         goalMetDates.add(date);
     }
 
+    /**
+     * Registra un día cumplido: incrementa la racha, reinicia las faltas consecutivas,
+     * añade la fecha al historial de objetivos alcanzados y recalcula el estado de adherencia.
+     *
+     * <p>Encapsula la invariante conductual que reacciona a un objetivo diario alcanzado
+     * en Nutrition Tracking, en lugar de exponerla a los llamadores.</p>
+     *
+     * @param date fecha del día cumplido
+     */
+    public void registerSuccessfulDay(LocalDate date) {
+        this.streak = this.streak + 1;
+        this.consecutiveMisses = 0;
+        markGoalMet(date);
+        this.adherenceStatus = calculateAdherenceStatus(this.consecutiveMisses);
+        this.lastEvaluatedAt = Instant.now();
+    }
+
     private AdherenceStatus calculateAdherenceStatus(int consecutiveMisses) {
         if (consecutiveMisses == 0) return AdherenceStatus.ON_TRACK;
         if (consecutiveMisses <= 2) return AdherenceStatus.AT_RISK;

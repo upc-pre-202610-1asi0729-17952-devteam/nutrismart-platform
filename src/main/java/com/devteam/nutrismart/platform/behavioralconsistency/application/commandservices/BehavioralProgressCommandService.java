@@ -1,6 +1,7 @@
 package com.devteam.nutrismart.platform.behavioralconsistency.application.commandservices;
 
 import com.devteam.nutrismart.platform.behavioralconsistency.application.commands.CreateBehavioralProgressCommand;
+import com.devteam.nutrismart.platform.behavioralconsistency.application.commands.RegisterSuccessfulDayCommand;
 import com.devteam.nutrismart.platform.behavioralconsistency.application.commands.UpdateBehavioralProgressCommand;
 import com.devteam.nutrismart.platform.behavioralconsistency.domain.model.aggregates.BehavioralProgress;
 import com.devteam.nutrismart.platform.shared.application.result.Result;
@@ -25,4 +26,14 @@ public interface BehavioralProgressCommandService {
      * @return resultado con el progreso actualizado o un fallo descriptivo
      */
     Result<BehavioralProgress, BehavioralProgressCommandFailure> handle(UpdateBehavioralProgressCommand command);
+
+    /**
+     * Registra un día cumplido para el usuario indicado: incrementa la racha, reinicia las
+     * faltas consecutivas y actualiza el estado de adherencia. Reacción al objetivo diario
+     * alcanzado en Nutrition Tracking.
+     *
+     * @param command comando con el usuario y la fecha del día cumplido
+     * @return resultado con el progreso actualizado o un fallo descriptivo
+     */
+    Result<BehavioralProgress, BehavioralProgressCommandFailure> handle(RegisterSuccessfulDayCommand command);
 }

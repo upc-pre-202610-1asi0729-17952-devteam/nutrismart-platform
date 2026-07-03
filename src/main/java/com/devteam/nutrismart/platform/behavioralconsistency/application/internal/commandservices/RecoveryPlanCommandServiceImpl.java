@@ -6,8 +6,12 @@ import com.devteam.nutrismart.platform.behavioralconsistency.application.command
 import com.devteam.nutrismart.platform.behavioralconsistency.application.commandservices.RecoveryPlanCommandFailure;
 import com.devteam.nutrismart.platform.behavioralconsistency.application.commandservices.RecoveryPlanCommandService;
 import com.devteam.nutrismart.platform.behavioralconsistency.domain.model.aggregates.RecoveryPlan;
+import com.devteam.nutrismart.platform.behavioralconsistency.domain.model.events.RecoveryPlanCompletedEvent;
+import com.devteam.nutrismart.platform.behavioralconsistency.domain.model.events.RecoveryPlanStartedEvent;
 import com.devteam.nutrismart.platform.behavioralconsistency.domain.model.repositories.RecoveryPlanRepository;
+import com.devteam.nutrismart.platform.behavioralconsistency.domain.model.valueobjects.RecoveryPlanStatus;
 import com.devteam.nutrismart.platform.shared.application.result.Result;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,9 +25,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class RecoveryPlanCommandServiceImpl implements RecoveryPlanCommandService {
 
     private final RecoveryPlanRepository repository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public RecoveryPlanCommandServiceImpl(RecoveryPlanRepository repository) {
+    public RecoveryPlanCommandServiceImpl(RecoveryPlanRepository repository,
+                                          ApplicationEventPublisher eventPublisher) {
         this.repository = repository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -31,6 +38,8 @@ public class RecoveryPlanCommandServiceImpl implements RecoveryPlanCommandServic
         try {
             var plan = RecoveryPlan.create(command.userId(), command.trigger(), command.actions(), command.expiresAt());
             var saved = repository.save(plan);
+            eventPublisher.publishEvent(RecoveryPlanStartedEvent.of(
+                    saved.getUserId(), saved.getId(), String.valueOf(saved.getTrigger())));
             return Result.success(saved);
         } catch (Exception ex) {
             return Result.failure(new RecoveryPlanCommandFailure.InvalidData(ex.getMessage()));
@@ -44,6 +53,10 @@ public class RecoveryPlanCommandServiceImpl implements RecoveryPlanCommandServic
                     .map(plan -> {
                         plan.update(command.status());
                         var saved = repository.save(plan);
+                        if (saved.getStatus() == RecoveryPlanStatus.COMPLETED) {
+                            eventPublisher.publishEvent(RecoveryPlanCompletedEvent.of(
+                                    saved.getUserId(), saved.getId()));
+                        }
                         return Result.<RecoveryPlan, RecoveryPlanCommandFailure>success(saved);
                     })
                     .orElse(Result.failure(new RecoveryPlanCommandFailure.RecoveryPlanNotFound(command.id())));
