@@ -7,11 +7,15 @@ package com.devteam.nutrismart.platform.iam.application.commandservices;
 public sealed interface UserCommandFailure
         permits UserCommandFailure.EmailAlreadyExists,
                 UserCommandFailure.UserNotFound,
+                UserCommandFailure.InvalidCredentials,
                 UserCommandFailure.InvalidData {
 
     record EmailAlreadyExists(String email) implements UserCommandFailure {}
 
     record UserNotFound(Long id) implements UserCommandFailure {}
+
+    /** La contraseña actual proporcionada no coincide con la almacenada. */
+    record InvalidCredentials() implements UserCommandFailure {}
 
     record InvalidData(String reason) implements UserCommandFailure {}
 }

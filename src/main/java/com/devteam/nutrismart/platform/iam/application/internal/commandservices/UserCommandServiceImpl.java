@@ -2,8 +2,10 @@ package com.devteam.nutrismart.platform.iam.application.internal.commandservices
 
 import com.devteam.nutrismart.platform.iam.application.commandservices.UserCommandFailure;
 import com.devteam.nutrismart.platform.iam.application.commandservices.UserCommandService;
+import com.devteam.nutrismart.platform.iam.application.commands.ChangePasswordCommand;
 import com.devteam.nutrismart.platform.iam.application.commands.DeleteUserCommand;
 import com.devteam.nutrismart.platform.iam.application.commands.RegisterAccountCommand;
+import com.devteam.nutrismart.platform.iam.application.commands.UpdateNotificationPreferencesCommand;
 import com.devteam.nutrismart.platform.iam.application.commands.UpdateUserCommand;
 import com.devteam.nutrismart.platform.iam.application.commands.UpdateUserPlanCommand;
 import com.devteam.nutrismart.platform.iam.domain.model.aggregates.User;
@@ -95,6 +97,45 @@ public class UserCommandServiceImpl implements UserCommandService {
             return userRepository.findById(command.userId())
                     .map(user -> {
                         user.updatePlan(command.plan());
+                        User saved = userRepository.save(user);
+                        return Result.<User, UserCommandFailure>success(saved);
+                    })
+                    .orElse(Result.failure(new UserCommandFailure.UserNotFound(command.userId())));
+        } catch (Exception ex) {
+            return Result.failure(new UserCommandFailure.InvalidData(ex.getMessage()));
+        }
+    }
+
+    @Override
+    public Result<User, UserCommandFailure> handle(ChangePasswordCommand command) {
+        try {
+            return userRepository.findById(command.userId())
+                    .map(user -> {
+                        if (!passwordEncoder.matches(command.currentPassword(), user.getPasswordHash())) {
+                            return Result.<User, UserCommandFailure>failure(new UserCommandFailure.InvalidCredentials());
+                        }
+                        user.changePassword(passwordEncoder.encode(command.newPassword()));
+                        User saved = userRepository.save(user);
+                        return Result.<User, UserCommandFailure>success(saved);
+                    })
+                    .orElse(Result.failure(new UserCommandFailure.UserNotFound(command.userId())));
+        } catch (Exception ex) {
+            return Result.failure(new UserCommandFailure.InvalidData(ex.getMessage()));
+        }
+    }
+
+    @Override
+    public Result<User, UserCommandFailure> handle(UpdateNotificationPreferencesCommand command) {
+        try {
+            return userRepository.findById(command.userId())
+                    .map(user -> {
+                        user.updateNotificationPreferences(
+                                command.dailyLogReminder(),
+                                command.weeklyProgressReport(),
+                                command.mealSuggestions(),
+                                command.streakAlerts(),
+                                command.marketingEmails()
+                        );
                         User saved = userRepository.save(user);
                         return Result.<User, UserCommandFailure>success(saved);
                     })

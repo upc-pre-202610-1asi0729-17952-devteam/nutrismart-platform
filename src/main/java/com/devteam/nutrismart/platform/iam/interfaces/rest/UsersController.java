@@ -1,11 +1,15 @@
 package com.devteam.nutrismart.platform.iam.interfaces.rest;
 
 import com.devteam.nutrismart.platform.iam.application.commandservices.UserCommandService;
+import com.devteam.nutrismart.platform.iam.application.commands.ChangePasswordCommand;
 import com.devteam.nutrismart.platform.iam.application.commands.DeleteUserCommand;
-import com.devteam.nutrismart.platform.iam.application.queries.GetAllUsersQuery;
+import com.devteam.nutrismart.platform.iam.application.commands.UpdateNotificationPreferencesCommand;
 import com.devteam.nutrismart.platform.iam.application.queries.GetUserByIdQuery;
 import com.devteam.nutrismart.platform.iam.application.queryservices.UserQueryService;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
+import com.devteam.nutrismart.platform.iam.interfaces.rest.resources.ChangePasswordResource;
 import com.devteam.nutrismart.platform.iam.interfaces.rest.resources.CreateUserResource;
+import com.devteam.nutrismart.platform.iam.interfaces.rest.resources.NotificationPreferencesResource;
 import com.devteam.nutrismart.platform.iam.interfaces.rest.resources.UpdateUserResource;
 import com.devteam.nutrismart.platform.iam.interfaces.rest.resources.UserResource;
 import com.devteam.nutrismart.platform.iam.interfaces.rest.transform.CreateUserCommandFromResourceAssembler;
@@ -21,11 +25,13 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 /**
  * Controlador REST para la gestión de usuarios de la plataforma NutriSmart.
- * Expone los endpoints CRUD del recurso {@code /api/v1/users}.
+ * Expone los endpoints del recurso {@code /api/v1/users}.
+ * <p>
+ * Todos los endpoints por {@code {id}} verifican la propiedad mediante {@link CurrentUserGuard}:
+ * un usuario autenticado solo puede consultar o modificar su propia cuenta (403 en caso contrario).
+ * </p>
  */
 @RestController
 @RequestMapping("/api/v1/users")
@@ -34,24 +40,13 @@ public class UsersController {
 
     private final UserCommandService commandService;
     private final UserQueryService queryService;
+    private final CurrentUserGuard currentUser;
 
-    public UsersController(UserCommandService commandService, UserQueryService queryService) {
+    public UsersController(UserCommandService commandService, UserQueryService queryService,
+                           CurrentUserGuard currentUser) {
         this.commandService = commandService;
         this.queryService = queryService;
-    }
-
-    @Operation(summary = "Get all users", description = "Retrieves a list of all registered users in the platform.")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "List of users retrieved successfully"),
-        @ApiResponse(responseCode = "401", description = "Unauthorized — valid JWT token required"),
-        @ApiResponse(responseCode = "403", description = "Forbidden — insufficient permissions")
-    })
-    @GetMapping
-    public ResponseEntity<List<UserResource>> getAllUsers() {
-        var users = queryService.handle(new GetAllUsersQuery()).stream()
-                .map(UserResourceFromEntityAssembler::toResourceFromEntity)
-                .toList();
-        return ResponseEntity.ok(users);
+        this.currentUser = currentUser;
     }
 
     @Operation(summary = "Get user by ID", description = "Retrieves a single user by their unique identifier.")
@@ -65,6 +60,7 @@ public class UsersController {
     public ResponseEntity<UserResource> getUserById(
             @Parameter(description = "Unique identifier of the user", example = "1")
             @PathVariable Long id) {
+        currentUser.ensureOwner(id);
         return queryService.handle(new GetUserByIdQuery(id))
                 .map(UserResourceFromEntityAssembler::toResourceFromEntity)
                 .map(ResponseEntity::ok)
@@ -98,7 +94,51 @@ public class UsersController {
             @Parameter(description = "Unique identifier of the user to update", example = "1")
             @PathVariable Long id,
             @Valid @RequestBody UpdateUserResource resource) {
+        currentUser.ensureOwner(id);
         var command = UpdateUserCommandFromResourceAssembler.toCommandFromResource(id, resource);
+        var result = commandService.handle(command);
+        return ResponseEntityFromUserCommandResultAssembler.toResponseEntityFromUpdateResult(result);
+    }
+
+    @Operation(summary = "Change password", description = "Changes the password of an authenticated user after verifying the current password.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Password changed successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid request data or current password is incorrect"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized — valid JWT token required"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    @PatchMapping("/{id}/password")
+    public ResponseEntity<?> changePassword(
+            @Parameter(description = "Unique identifier of the user", example = "1")
+            @PathVariable Long id,
+            @Valid @RequestBody ChangePasswordResource resource) {
+        currentUser.ensureOwner(id);
+        var command = new ChangePasswordCommand(id, resource.currentPassword(), resource.newPassword());
+        var result = commandService.handle(command);
+        return ResponseEntityFromUserCommandResultAssembler.toResponseEntityFromUpdateResult(result);
+    }
+
+    @Operation(summary = "Update notification preferences", description = "Updates the user's notification preferences. Null fields are left unchanged.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Notification preferences updated successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid request data"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized — valid JWT token required"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    @PatchMapping("/{id}/notification-preferences")
+    public ResponseEntity<?> updateNotificationPreferences(
+            @Parameter(description = "Unique identifier of the user", example = "1")
+            @PathVariable Long id,
+            @Valid @RequestBody NotificationPreferencesResource resource) {
+        currentUser.ensureOwner(id);
+        var command = new UpdateNotificationPreferencesCommand(
+                id,
+                resource.dailyLogReminder(),
+                resource.weeklyProgressReport(),
+                resource.mealSuggestions(),
+                resource.streakAlerts(),
+                resource.marketingEmails()
+        );
         var result = commandService.handle(command);
         return ResponseEntityFromUserCommandResultAssembler.toResponseEntityFromUpdateResult(result);
     }
@@ -114,6 +154,7 @@ public class UsersController {
     public ResponseEntity<?> deleteUser(
             @Parameter(description = "Unique identifier of the user to delete", example = "1")
             @PathVariable Long id) {
+        currentUser.ensureOwner(id);
         var command = new DeleteUserCommand(id);
         var result = commandService.handle(command);
         return ResponseEntityFromUserCommandResultAssembler.toResponseEntityFromDeleteResult(result);
