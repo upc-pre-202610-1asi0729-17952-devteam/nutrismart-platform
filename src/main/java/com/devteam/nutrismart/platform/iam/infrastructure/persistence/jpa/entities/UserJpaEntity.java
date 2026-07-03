@@ -112,4 +112,19 @@ public class UserJpaEntity extends AuditableAbstractPersistenceEntity {
 
     @Comment("Fecha de expiración del plan de suscripción del usuario")
     private LocalDate planExpiresAt;
+
+    @Comment("Preferencia de notificación: recordatorio diario de registro de comidas")
+    private Boolean notifDailyLogReminder;
+
+    @Comment("Preferencia de notificación: reporte semanal de progreso")
+    private Boolean notifWeeklyProgressReport;
+
+    @Comment("Preferencia de notificación: sugerencias de comidas")
+    private Boolean notifMealSuggestions;
+
+    @Comment("Preferencia de notificación: alertas de racha")
+    private Boolean notifStreakAlerts;
+
+    @Comment("Preferencia de notificación: correos de marketing")
+    private Boolean notifMarketingEmails;
 }
