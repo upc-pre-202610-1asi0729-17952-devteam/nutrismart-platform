@@ -15,9 +15,13 @@ import com.devteam.nutrismart.platform.restaurantintelligence.application.ports.
 import com.devteam.nutrismart.platform.restaurantintelligence.application.ports.output.dto.RankedDishData;
 import com.devteam.nutrismart.platform.restaurantintelligence.application.ports.output.dto.UserProfileData;
 import com.devteam.nutrismart.platform.restaurantintelligence.domain.model.RankedDishResult;
+import com.devteam.nutrismart.platform.restaurantintelligence.domain.model.events.CompatibleDishesRanked;
+import com.devteam.nutrismart.platform.restaurantintelligence.domain.model.events.MenuPhotoProcessed;
+import com.devteam.nutrismart.platform.restaurantintelligence.domain.model.events.RestrictedDishFlagged;
 import com.devteam.nutrismart.platform.shared.application.result.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -44,18 +48,21 @@ public class MenuScanCommandServiceImpl implements MenuScanCommandService {
     private final UserProfileLookupPort     userProfileLookupPort;
     private final FoodNutritionLookupPort   foodNutritionLookupPort;
     private final SubscriptionStatusLookupPort subscriptionStatusLookupPort;
+    private final ApplicationEventPublisher eventPublisher;
 
     public MenuScanCommandServiceImpl(
             MenuImageRecognitionPort imageRecognitionPort,
             MenuRankingPort menuRankingPort,
             UserProfileLookupPort userProfileLookupPort,
             FoodNutritionLookupPort foodNutritionLookupPort,
-            SubscriptionStatusLookupPort subscriptionStatusLookupPort) {
+            SubscriptionStatusLookupPort subscriptionStatusLookupPort,
+            ApplicationEventPublisher eventPublisher) {
         this.imageRecognitionPort       = imageRecognitionPort;
         this.menuRankingPort            = menuRankingPort;
         this.userProfileLookupPort      = userProfileLookupPort;
         this.foodNutritionLookupPort    = foodNutritionLookupPort;
         this.subscriptionStatusLookupPort = subscriptionStatusLookupPort;
+        this.eventPublisher             = eventPublisher;
     }
 
     @Override
@@ -82,6 +89,9 @@ public class MenuScanCommandServiceImpl implements MenuScanCommandService {
         if (dishes == null || dishes.isEmpty()) {
             return Result.success(List.of());
         }
+
+        // Domain event: the menu photo was processed and its dishes extracted (status → ANALYZED)
+        eventPublisher.publishEvent(MenuPhotoProcessed.of(command.userId(), dishes.size()));
 
         // Load user profile for filtering and ranking
         UserProfileData profile;
@@ -178,6 +188,12 @@ public class MenuScanCommandServiceImpl implements MenuScanCommandService {
 
             List<String> conflicts = computeConflicts(satisfiedRestrictions);
 
+            // Domain event: this dish violates one or more of the user's dietary restrictions
+            if (!conflicts.isEmpty()) {
+                eventPublisher.publishEvent(
+                        RestrictedDishFlagged.of(command.userId(), data.dishName(), conflicts));
+            }
+
             results.add(new RankedDishResult(
                     rank++, data.dishName(), resolvedDishNameEs, resolvedNameKey, data.price(), foodItemId,
                     data.compatibilityScore(), data.reason(), data.reasonEn(),
@@ -186,7 +202,10 @@ public class MenuScanCommandServiceImpl implements MenuScanCommandService {
                     conflicts));
         }
 
-        // TODO: publish CompatibleDishesRanked domain event
+        // Domain event: compatible dishes ranked by profile compatibility (status → RANKED)
+        String topDishName = results.isEmpty() ? null : results.get(0).dishName();
+        eventPublisher.publishEvent(
+                CompatibleDishesRanked.of(command.userId(), results.size(), topDishName));
 
         return Result.success(results);
     }
