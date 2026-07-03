@@ -1,35 +1,30 @@
 package com.devteam.nutrismart.platform.restaurantintelligence.infrastructure.acl;
 
-import com.devteam.nutrismart.platform.iam.application.queries.GetUserByIdQuery;
-import com.devteam.nutrismart.platform.iam.application.queryservices.UserQueryService;
-import com.devteam.nutrismart.platform.iam.domain.model.aggregates.User;
+import com.devteam.nutrismart.platform.iam.interfaces.acl.IamContextFacade;
 import com.devteam.nutrismart.platform.restaurantintelligence.application.ports.output.UserProfileLookupPort;
 import com.devteam.nutrismart.platform.restaurantintelligence.application.ports.output.dto.UserProfileData;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+/**
+ * ACL adapter: obtiene el perfil dietético del usuario desde el contexto IAM
+ * a través de su {@link IamContextFacade} (published language), sin acoplarse
+ * al dominio interno de IAM.
+ */
 @Component
 public class RestaurantUserProfileLookupAdapter implements UserProfileLookupPort {
 
-    private final UserQueryService userQueryService;
+    private final IamContextFacade iamContextFacade;
 
-    public RestaurantUserProfileLookupAdapter(UserQueryService userQueryService) {
-        this.userQueryService = userQueryService;
+    public RestaurantUserProfileLookupAdapter(IamContextFacade iamContextFacade) {
+        this.iamContextFacade = iamContextFacade;
     }
 
     @Override
     public UserProfileData getUserProfile(Long userId) {
-        return userQueryService.handle(new GetUserByIdQuery(userId))
-                .map(this::toProfileData)
+        return iamContextFacade.getUserDietaryProfile(userId)
+                .map(p -> new UserProfileData(p.goal(), p.restrictions(), p.dailyCalorieTarget()))
                 .orElse(new UserProfileData(null, List.of(), null));
-    }
-
-    private UserProfileData toProfileData(User user) {
-        List<String> restrictionNames = user.getRestrictions() == null
-                ? List.of()
-                : user.getRestrictions().stream().map(Enum::name).toList();
-        String goalName = user.getGoal() != null ? user.getGoal().name() : null;
-        return new UserProfileData(goalName, restrictionNames, user.getDailyCalorieTarget());
     }
 }
