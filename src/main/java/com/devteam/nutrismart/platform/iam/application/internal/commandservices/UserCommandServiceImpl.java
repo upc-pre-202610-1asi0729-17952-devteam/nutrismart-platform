@@ -9,8 +9,13 @@ import com.devteam.nutrismart.platform.iam.application.commands.UpdateNotificati
 import com.devteam.nutrismart.platform.iam.application.commands.UpdateUserCommand;
 import com.devteam.nutrismart.platform.iam.application.commands.UpdateUserPlanCommand;
 import com.devteam.nutrismart.platform.iam.domain.model.aggregates.User;
+import com.devteam.nutrismart.platform.iam.domain.model.events.AccountDeletedEvent;
+import com.devteam.nutrismart.platform.iam.domain.model.events.ProfileUpdatedEvent;
+import com.devteam.nutrismart.platform.iam.domain.model.events.UserPlanUpdatedEvent;
+import com.devteam.nutrismart.platform.iam.domain.model.events.UserRegisteredEvent;
 import com.devteam.nutrismart.platform.iam.domain.model.repositories.UserRepository;
 import com.devteam.nutrismart.platform.shared.application.result.Result;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,10 +31,13 @@ public class UserCommandServiceImpl implements UserCommandService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public UserCommandServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserCommandServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                                  ApplicationEventPublisher eventPublisher) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -56,6 +64,7 @@ public class UserCommandServiceImpl implements UserCommandService {
                     command.homeCity()
             );
             User saved = userRepository.save(user);
+            eventPublisher.publishEvent(UserRegisteredEvent.of(saved.getId(), saved.getEmail().value()));
             return Result.success(saved);
         } catch (Exception ex) {
             return Result.failure(new UserCommandFailure.InvalidData(ex.getMessage()));
@@ -83,6 +92,7 @@ public class UserCommandServiceImpl implements UserCommandService {
                                 command.planExpiresAt()
                         );
                         User saved = userRepository.save(user);
+                        eventPublisher.publishEvent(ProfileUpdatedEvent.of(saved.getId()));
                         return Result.<User, UserCommandFailure>success(saved);
                     })
                     .orElse(Result.failure(new UserCommandFailure.UserNotFound(command.id())));
@@ -98,6 +108,7 @@ public class UserCommandServiceImpl implements UserCommandService {
                     .map(user -> {
                         user.updatePlan(command.plan());
                         User saved = userRepository.save(user);
+                        eventPublisher.publishEvent(UserPlanUpdatedEvent.of(saved.getId(), command.plan().name()));
                         return Result.<User, UserCommandFailure>success(saved);
                     })
                     .orElse(Result.failure(new UserCommandFailure.UserNotFound(command.userId())));
@@ -151,6 +162,7 @@ public class UserCommandServiceImpl implements UserCommandService {
             return Result.failure(new UserCommandFailure.UserNotFound(command.id()));
         }
         userRepository.deleteById(command.id());
+        eventPublisher.publishEvent(AccountDeletedEvent.of(command.id()));
         return Result.success(null);
     }
 }
