@@ -30,10 +30,11 @@ build/
 !**/src/test/**/build/
 
 ### VS Code ###
-.vscode/
 
 #K
 /src/main/resources/application-dev.properties
 
 #H2
 data/
+config.bat
+node_modules
