@@ -10,6 +10,7 @@ import com.devteam.nutrismart.platform.subscriptions.interfaces.rest.resources.U
 import com.devteam.nutrismart.platform.subscriptions.interfaces.rest.transform.ResponseEntityFromSubscriptionCommandResultAssembler;
 import com.devteam.nutrismart.platform.subscriptions.interfaces.rest.transform.SubscriptionCommandFromResourceAssembler;
 import com.devteam.nutrismart.platform.subscriptions.interfaces.rest.transform.SubscriptionResourceFromEntityAssembler;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -32,11 +33,14 @@ public class SubscriptionsController {
 
     private final SubscriptionCommandService commandService;
     private final SubscriptionQueryService queryService;
+    private final CurrentUserGuard currentUser;
 
     public SubscriptionsController(SubscriptionCommandService commandService,
-                                   SubscriptionQueryService queryService) {
+                                   SubscriptionQueryService queryService,
+                                   CurrentUserGuard currentUser) {
         this.commandService = commandService;
         this.queryService = queryService;
+        this.currentUser = currentUser;
     }
 
     @Operation(summary = "Get all subscriptions",
@@ -48,9 +52,7 @@ public class SubscriptionsController {
     public ResponseEntity<List<SubscriptionResource>> getAllSubscriptions(
             @Parameter(description = "Filter subscriptions by user ID (optional)", example = "1")
             @RequestParam(required = false) Long userId) {
-        var subscriptions = (userId != null)
-                ? queryService.findByUserId(userId)
-                : queryService.handle(new GetAllSubscriptionsQuery());
+        var subscriptions = queryService.findByUserId(currentUser.scopeToOwner(userId));
         return ResponseEntity.ok(subscriptions.stream()
                 .map(SubscriptionResourceFromEntityAssembler::toResourceFromEntity)
                 .toList());
@@ -67,6 +69,7 @@ public class SubscriptionsController {
             @Parameter(description = "Unique identifier of the subscription", example = "1")
             @PathVariable Long id) {
         return queryService.handle(new GetSubscriptionByIdQuery(id))
+                .filter(subscription -> currentUser.isOwner(subscription.getUserId()))
                 .map(SubscriptionResourceFromEntityAssembler::toResourceFromEntity)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -81,6 +84,7 @@ public class SubscriptionsController {
     })
     @PostMapping
     public ResponseEntity<?> createSubscription(@Valid @RequestBody CreateSubscriptionResource resource) {
+        currentUser.ensureOwner(resource.userId());
         var command = SubscriptionCommandFromResourceAssembler.toCreateCommandFromResource(resource);
         var result = commandService.handle(command);
         return ResponseEntityFromSubscriptionCommandResultAssembler.toResponseEntityFromCreateResult(result);
@@ -98,6 +102,8 @@ public class SubscriptionsController {
             @Parameter(description = "Unique identifier of the subscription to update", example = "1")
             @PathVariable Long id,
             @Valid @RequestBody UpdateSubscriptionResource resource) {
+        var owned = queryService.handle(new GetSubscriptionByIdQuery(id));
+        if (owned.isEmpty() || !currentUser.isOwner(owned.get().getUserId())) return ResponseEntity.notFound().build();
         var command = SubscriptionCommandFromResourceAssembler.toUpdateCommandFromResource(id, resource);
         var result = commandService.handle(command);
         return ResponseEntityFromSubscriptionCommandResultAssembler.toResponseEntityFromUpdateResult(result);
