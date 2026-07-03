@@ -11,6 +11,7 @@ import com.devteam.nutrismart.platform.behavioralconsistency.interfaces.rest.tra
 import com.devteam.nutrismart.platform.behavioralconsistency.interfaces.rest.transform.EatingBehaviorPatternResourceFromEntityAssembler;
 import com.devteam.nutrismart.platform.behavioralconsistency.interfaces.rest.transform.ResponseEntityFromEatingBehaviorPatternCommandResultAssembler;
 import com.devteam.nutrismart.platform.behavioralconsistency.interfaces.rest.transform.UpdateEatingBehaviorPatternCommandFromResourceAssembler;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -33,11 +34,14 @@ public class EatingBehaviorPatternsController {
 
     private final EatingBehaviorPatternCommandService commandService;
     private final EatingBehaviorPatternQueryService queryService;
+    private final CurrentUserGuard currentUser;
 
     public EatingBehaviorPatternsController(EatingBehaviorPatternCommandService commandService,
-                                            EatingBehaviorPatternQueryService queryService) {
+                                            EatingBehaviorPatternQueryService queryService,
+                                            CurrentUserGuard currentUser) {
         this.commandService = commandService;
         this.queryService = queryService;
+        this.currentUser = currentUser;
     }
 
     @Operation(summary = "Get all eating behavior patterns", description = "Returns all eating behavior patterns. Optionally filters by userId.")
@@ -48,7 +52,7 @@ public class EatingBehaviorPatternsController {
     public ResponseEntity<List<EatingBehaviorPatternResource>> getAll(
             @Parameter(description = "Optional user ID to filter results", example = "42")
             @RequestParam(required = false) Long userId) {
-        var results = queryService.handle(new GetAllEatingBehaviorPatternsQuery(userId)).stream()
+        var results = queryService.handle(new GetAllEatingBehaviorPatternsQuery(currentUser.scopeToOwner(userId))).stream()
                 .map(EatingBehaviorPatternResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
         return ResponseEntity.ok(results);
@@ -64,6 +68,7 @@ public class EatingBehaviorPatternsController {
             @Parameter(description = "Unique identifier of the eating behavior pattern", example = "1")
             @PathVariable Long id) {
         return queryService.handle(new GetEatingBehaviorPatternByIdQuery(id))
+                .filter(pattern -> currentUser.isOwner(pattern.getUserId()))
                 .map(EatingBehaviorPatternResourceFromEntityAssembler::toResourceFromEntity)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -76,6 +81,7 @@ public class EatingBehaviorPatternsController {
     })
     @PostMapping
     public ResponseEntity<?> create(@Valid @RequestBody CreateEatingBehaviorPatternResource resource) {
+        currentUser.ensureOwner(resource.userId());
         var command = CreateEatingBehaviorPatternCommandFromResourceAssembler.toCommandFromResource(resource);
         var result = commandService.handle(command);
         return ResponseEntityFromEatingBehaviorPatternCommandResultAssembler.toResponseEntityFromCreateResult(result);
@@ -92,6 +98,8 @@ public class EatingBehaviorPatternsController {
             @Parameter(description = "Unique identifier of the eating behavior pattern", example = "1")
             @PathVariable Long id,
             @Valid @RequestBody UpdateEatingBehaviorPatternResource resource) {
+        var owned = queryService.handle(new GetEatingBehaviorPatternByIdQuery(id));
+        if (owned.isEmpty() || !currentUser.isOwner(owned.get().getUserId())) return ResponseEntity.notFound().build();
         var command = UpdateEatingBehaviorPatternCommandFromResourceAssembler.toCommandFromResource(id, resource);
         var result = commandService.handle(command);
         return ResponseEntityFromEatingBehaviorPatternCommandResultAssembler.toResponseEntityFromUpdateResult(result);

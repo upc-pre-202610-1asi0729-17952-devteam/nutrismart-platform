@@ -12,6 +12,7 @@ import com.devteam.nutrismart.platform.behavioralconsistency.interfaces.rest.tra
 import com.devteam.nutrismart.platform.behavioralconsistency.interfaces.rest.transform.RecoveryPlanResourceFromEntityAssembler;
 import com.devteam.nutrismart.platform.behavioralconsistency.interfaces.rest.transform.ResponseEntityFromRecoveryPlanCommandResultAssembler;
 import com.devteam.nutrismart.platform.behavioralconsistency.interfaces.rest.transform.UpdateRecoveryPlanCommandFromResourceAssembler;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -34,11 +35,14 @@ public class RecoveryPlansController {
 
     private final RecoveryPlanCommandService commandService;
     private final RecoveryPlanQueryService queryService;
+    private final CurrentUserGuard currentUser;
 
     public RecoveryPlansController(RecoveryPlanCommandService commandService,
-                                   RecoveryPlanQueryService queryService) {
+                                   RecoveryPlanQueryService queryService,
+                                   CurrentUserGuard currentUser) {
         this.commandService = commandService;
         this.queryService = queryService;
+        this.currentUser = currentUser;
     }
 
     @Operation(summary = "Get all recovery plans", description = "Returns all recovery plans. Optionally filters by userId.")
@@ -49,7 +53,7 @@ public class RecoveryPlansController {
     public ResponseEntity<List<RecoveryPlanResource>> getAll(
             @Parameter(description = "Optional user ID to filter results", example = "42")
             @RequestParam(required = false) Long userId) {
-        var results = queryService.handle(new GetAllRecoveryPlansQuery(userId)).stream()
+        var results = queryService.handle(new GetAllRecoveryPlansQuery(currentUser.scopeToOwner(userId))).stream()
                 .map(RecoveryPlanResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
         return ResponseEntity.ok(results);
@@ -65,6 +69,7 @@ public class RecoveryPlansController {
             @Parameter(description = "Unique identifier of the recovery plan", example = "1")
             @PathVariable Long id) {
         return queryService.handle(new GetRecoveryPlanByIdQuery(id))
+                .filter(plan -> currentUser.isOwner(plan.getUserId()))
                 .map(RecoveryPlanResourceFromEntityAssembler::toResourceFromEntity)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -77,6 +82,7 @@ public class RecoveryPlansController {
     })
     @PostMapping
     public ResponseEntity<?> create(@Valid @RequestBody CreateRecoveryPlanResource resource) {
+        currentUser.ensureOwner(resource.userId());
         var command = CreateRecoveryPlanCommandFromResourceAssembler.toCommandFromResource(resource);
         var result = commandService.handle(command);
         return ResponseEntityFromRecoveryPlanCommandResultAssembler.toResponseEntityFromCreateResult(result);
@@ -93,6 +99,8 @@ public class RecoveryPlansController {
             @Parameter(description = "Unique identifier of the recovery plan", example = "1")
             @PathVariable Long id,
             @Valid @RequestBody UpdateRecoveryPlanResource resource) {
+        var owned = queryService.handle(new GetRecoveryPlanByIdQuery(id));
+        if (owned.isEmpty() || !currentUser.isOwner(owned.get().getUserId())) return ResponseEntity.notFound().build();
         var command = UpdateRecoveryPlanCommandFromResourceAssembler.toCommandFromResource(id, resource);
         var result = commandService.handle(command);
         return ResponseEntityFromRecoveryPlanCommandResultAssembler.toResponseEntityFromUpdateResult(result);
@@ -107,6 +115,8 @@ public class RecoveryPlansController {
     public ResponseEntity<?> delete(
             @Parameter(description = "Unique identifier of the recovery plan to delete", example = "1")
             @PathVariable Long id) {
+        var owned = queryService.handle(new GetRecoveryPlanByIdQuery(id));
+        if (owned.isEmpty() || !currentUser.isOwner(owned.get().getUserId())) return ResponseEntity.notFound().build();
         var command = new DeleteRecoveryPlanCommand(id);
         var result = commandService.handle(command);
         return ResponseEntityFromRecoveryPlanCommandResultAssembler.toResponseEntityFromDeleteResult(result);
