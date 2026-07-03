@@ -11,6 +11,7 @@ import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.resourc
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.transform.MealRecordCommandFromResourceAssembler;
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.transform.MealRecordResourceFromEntityAssembler;
 import com.devteam.nutrismart.platform.nutritiontracking.interfaces.rest.transform.ResponseEntityFromMealRecordCommandResultAssembler;
+import com.devteam.nutrismart.platform.shared.infrastructure.security.CurrentUserGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -31,13 +32,16 @@ public class NutritionLogController {
     private final MealRecordCommandService commandService;
     private final MealRecordQueryService queryService;
     private final MealRecordRepository mealRecordRepository;
+    private final CurrentUserGuard currentUser;
 
     public NutritionLogController(MealRecordCommandService commandService,
                                    MealRecordQueryService queryService,
-                                   MealRecordRepository mealRecordRepository) {
+                                   MealRecordRepository mealRecordRepository,
+                                   CurrentUserGuard currentUser) {
         this.commandService = commandService;
         this.queryService = queryService;
         this.mealRecordRepository = mealRecordRepository;
+        this.currentUser = currentUser;
     }
 
     @Operation(summary = "Get all nutrition logs", description = "Retrieves meal records. Can be filtered by userId and/or loggedAt date (yyyy-MM-dd)")
@@ -50,18 +54,15 @@ public class NutritionLogController {
     public ResponseEntity<List<MealRecordResource>> getAll(
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) String loggedAt) {
+        Long scopedUserId = currentUser.scopeToOwner(userId);
         List<MealRecordResource> resources;
-        if (userId != null && loggedAt != null) {
+        if (loggedAt != null) {
             LocalDate date = LocalDate.parse(loggedAt);
-            resources = mealRecordRepository.findByUserIdAndLoggedAtDate(userId, date).stream()
-                    .map(MealRecordResourceFromEntityAssembler::toResource)
-                    .collect(Collectors.toList());
-        } else if (userId != null) {
-            resources = mealRecordRepository.findByUserId(userId).stream()
+            resources = mealRecordRepository.findByUserIdAndLoggedAtDate(scopedUserId, date).stream()
                     .map(MealRecordResourceFromEntityAssembler::toResource)
                     .collect(Collectors.toList());
         } else {
-            resources = queryService.handle(new GetAllMealRecordsQuery()).stream()
+            resources = mealRecordRepository.findByUserId(scopedUserId).stream()
                     .map(MealRecordResourceFromEntityAssembler::toResource)
                     .collect(Collectors.toList());
         }
@@ -77,6 +78,7 @@ public class NutritionLogController {
     })
     @PostMapping
     public ResponseEntity<MealRecordResource> create(@RequestBody CreateMealRecordResource resource) {
+        currentUser.ensureOwner(resource.userId());
         var command = MealRecordCommandFromResourceAssembler.toLogMealCommand(resource);
         var result = commandService.handle(command);
         return ResponseEntityFromMealRecordCommandResultAssembler.toResponseEntity(result, HttpStatus.CREATED);
@@ -92,6 +94,10 @@ public class NutritionLogController {
     @PutMapping("/{id}")
     public ResponseEntity<MealRecordResource> update(@PathVariable Long id,
                                                       @RequestBody UpdateMealRecordResource resource) {
+        var existing = mealRecordRepository.findById(id);
+        if (existing.isEmpty() || !currentUser.isOwner(existing.get().getUserId())) {
+            return ResponseEntity.notFound().<MealRecordResource>build();
+        }
         var command = MealRecordCommandFromResourceAssembler.toUpdateMealEntryCommand(id, resource);
         var result = commandService.handle(command);
         return ResponseEntityFromMealRecordCommandResultAssembler.toResponseEntity(result, HttpStatus.OK);
@@ -105,6 +111,10 @@ public class NutritionLogController {
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
+        var existing = mealRecordRepository.findById(id);
+        if (existing.isEmpty() || !currentUser.isOwner(existing.get().getUserId())) {
+            return ResponseEntity.notFound().<Void>build();
+        }
         var result = commandService.handle(new DeleteMealLogCommand(id));
         return result.fold(
                 ignored -> ResponseEntity.noContent().<Void>build(),
