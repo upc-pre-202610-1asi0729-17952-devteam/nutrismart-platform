@@ -1,7 +1,9 @@
 package com.devteam.nutrismart.platform.iam.application.commandservices;
 
+import com.devteam.nutrismart.platform.iam.application.commands.ChangePasswordCommand;
 import com.devteam.nutrismart.platform.iam.application.commands.DeleteUserCommand;
 import com.devteam.nutrismart.platform.iam.application.commands.RegisterAccountCommand;
+import com.devteam.nutrismart.platform.iam.application.commands.UpdateNotificationPreferencesCommand;
 import com.devteam.nutrismart.platform.iam.application.commands.UpdateUserCommand;
 import com.devteam.nutrismart.platform.iam.application.commands.UpdateUserPlanCommand;
 import com.devteam.nutrismart.platform.iam.domain.model.aggregates.User;
@@ -36,6 +38,22 @@ public interface UserCommandService {
      * @return {@code Result} con el usuario actualizado, o un fallo tipado en caso de error
      */
     Result<User, UserCommandFailure> handle(UpdateUserPlanCommand command);
+
+    /**
+     * Cambia la contraseña de un usuario autenticado, verificando primero la contraseña actual.
+     *
+     * @param command userId, contraseña actual y nueva contraseña
+     * @return {@code Result} con el usuario actualizado, o un fallo tipado (credenciales inválidas o usuario no encontrado)
+     */
+    Result<User, UserCommandFailure> handle(ChangePasswordCommand command);
+
+    /**
+     * Actualiza las preferencias de notificación de un usuario.
+     *
+     * @param command userId y banderas de preferencias (nullables para actualización parcial)
+     * @return {@code Result} con el usuario actualizado, o un fallo tipado en caso de error
+     */
+    Result<User, UserCommandFailure> handle(UpdateNotificationPreferencesCommand command);
 
     /**
      * Procesa la eliminación de la cuenta de un usuario.

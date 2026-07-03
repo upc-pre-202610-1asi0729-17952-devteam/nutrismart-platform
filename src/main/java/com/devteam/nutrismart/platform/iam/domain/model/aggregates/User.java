@@ -42,6 +42,11 @@ public class User {
     private String homeCity;
     private LocalDate goalStartedAt;
     private LocalDate planExpiresAt;
+    private Boolean notifDailyLogReminder;
+    private Boolean notifWeeklyProgressReport;
+    private Boolean notifMealSuggestions;
+    private Boolean notifStreakAlerts;
+    private Boolean notifMarketingEmails;
 
     private User() {}
 
@@ -103,6 +108,11 @@ public class User {
         user.consecutiveMisses = 0;
         user.createdAt = LocalDate.now();
         user.goalStartedAt = LocalDate.now();
+        user.notifDailyLogReminder = true;
+        user.notifWeeklyProgressReport = true;
+        user.notifMealSuggestions = false;
+        user.notifStreakAlerts = true;
+        user.notifMarketingEmails = false;
         user.calculateMetabolicTargets();
         return user;
     }
@@ -163,7 +173,12 @@ public class User {
             LocalDate createdAt,
             String homeCity,
             LocalDate goalStartedAt,
-            LocalDate planExpiresAt
+            LocalDate planExpiresAt,
+            Boolean notifDailyLogReminder,
+            Boolean notifWeeklyProgressReport,
+            Boolean notifMealSuggestions,
+            Boolean notifStreakAlerts,
+            Boolean notifMarketingEmails
     ) {
         User user = new User();
         user.id = id;
@@ -191,6 +206,11 @@ public class User {
         user.homeCity = homeCity;
         user.goalStartedAt = goalStartedAt;
         user.planExpiresAt = planExpiresAt;
+        user.notifDailyLogReminder = notifDailyLogReminder != null ? notifDailyLogReminder : true;
+        user.notifWeeklyProgressReport = notifWeeklyProgressReport != null ? notifWeeklyProgressReport : true;
+        user.notifMealSuggestions = notifMealSuggestions != null ? notifMealSuggestions : false;
+        user.notifStreakAlerts = notifStreakAlerts != null ? notifStreakAlerts : true;
+        user.notifMarketingEmails = notifMarketingEmails != null ? notifMarketingEmails : false;
         return user;
     }
 
@@ -300,6 +320,30 @@ public class User {
         this.passwordHash = newPasswordHash;
     }
 
+    /**
+     * Actualiza las preferencias de notificación del usuario. Cada bandera se aplica
+     * solo si no es nula, permitiendo actualizaciones parciales.
+     *
+     * @param dailyLogReminder    recordatorio diario de registro de comidas
+     * @param weeklyProgressReport reporte semanal de progreso
+     * @param mealSuggestions     sugerencias de comidas
+     * @param streakAlerts        alertas de racha
+     * @param marketingEmails     correos de marketing
+     */
+    public void updateNotificationPreferences(
+            Boolean dailyLogReminder,
+            Boolean weeklyProgressReport,
+            Boolean mealSuggestions,
+            Boolean streakAlerts,
+            Boolean marketingEmails
+    ) {
+        if (dailyLogReminder != null) this.notifDailyLogReminder = dailyLogReminder;
+        if (weeklyProgressReport != null) this.notifWeeklyProgressReport = weeklyProgressReport;
+        if (mealSuggestions != null) this.notifMealSuggestions = mealSuggestions;
+        if (streakAlerts != null) this.notifStreakAlerts = streakAlerts;
+        if (marketingEmails != null) this.notifMarketingEmails = marketingEmails;
+    }
+
     public Long getId() { return id; }
     public String getFirstName() { return firstName; }
     public String getLastName() { return lastName; }
@@ -325,4 +369,9 @@ public class User {
     public String getHomeCity() { return homeCity; }
     public LocalDate getGoalStartedAt() { return goalStartedAt; }
     public LocalDate getPlanExpiresAt() { return planExpiresAt; }
+    public Boolean getNotifDailyLogReminder() { return notifDailyLogReminder; }
+    public Boolean getNotifWeeklyProgressReport() { return notifWeeklyProgressReport; }
+    public Boolean getNotifMealSuggestions() { return notifMealSuggestions; }
+    public Boolean getNotifStreakAlerts() { return notifStreakAlerts; }
+    public Boolean getNotifMarketingEmails() { return notifMarketingEmails; }
 }

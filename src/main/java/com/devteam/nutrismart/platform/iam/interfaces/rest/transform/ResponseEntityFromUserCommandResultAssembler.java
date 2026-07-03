@@ -30,6 +30,8 @@ public final class ResponseEntityFromUserCommandResultAssembler {
                             ResponseEntity.status(409).body(Map.of("message", "Email already exists: " + f.email()));
                     case UserCommandFailure.InvalidData f ->
                             ResponseEntity.status(400).body(Map.of("message", f.reason()));
+                    case UserCommandFailure.InvalidCredentials f ->
+                            ResponseEntity.status(400).body(Map.of("message", "Current password is incorrect"));
                     case UserCommandFailure.UserNotFound f ->
                             ResponseEntity.status(404).body(Map.of("message", "User not found"));
                 }
@@ -51,6 +53,8 @@ public final class ResponseEntityFromUserCommandResultAssembler {
                             ResponseEntity.status(404).body(Map.of("message", "User not found"));
                     case UserCommandFailure.EmailAlreadyExists f ->
                             ResponseEntity.status(409).body(Map.of("message", "Email already exists: " + f.email()));
+                    case UserCommandFailure.InvalidCredentials f ->
+                            ResponseEntity.status(400).body(Map.of("message", "Current password is incorrect"));
                     case UserCommandFailure.InvalidData f ->
                             ResponseEntity.status(400).body(Map.of("message", f.reason()));
                 }
@@ -72,6 +76,8 @@ public final class ResponseEntityFromUserCommandResultAssembler {
                             ResponseEntity.status(404).body(Map.of("message", "User not found"));
                     case UserCommandFailure.EmailAlreadyExists f ->
                             ResponseEntity.status(409).body(Map.of("message", "Email already exists: " + f.email()));
+                    case UserCommandFailure.InvalidCredentials f ->
+                            ResponseEntity.status(400).body(Map.of("message", "Current password is incorrect"));
                     case UserCommandFailure.InvalidData f ->
                             ResponseEntity.status(400).body(Map.of("message", f.reason()));
                 }

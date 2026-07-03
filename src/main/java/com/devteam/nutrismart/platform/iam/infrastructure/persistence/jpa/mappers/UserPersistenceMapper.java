@@ -60,6 +60,11 @@ public final class UserPersistenceMapper {
         entity.setHomeCity(user.getHomeCity());
         entity.setGoalStartedAt(user.getGoalStartedAt());
         entity.setPlanExpiresAt(user.getPlanExpiresAt());
+        entity.setNotifDailyLogReminder(user.getNotifDailyLogReminder());
+        entity.setNotifWeeklyProgressReport(user.getNotifWeeklyProgressReport());
+        entity.setNotifMealSuggestions(user.getNotifMealSuggestions());
+        entity.setNotifStreakAlerts(user.getNotifStreakAlerts());
+        entity.setNotifMarketingEmails(user.getNotifMarketingEmails());
         return entity;
     }
 
@@ -100,7 +105,12 @@ public final class UserPersistenceMapper {
                 entity.getCreatedAt() != null ? entity.getCreatedAt().atZone(ZoneOffset.UTC).toLocalDate() : null,
                 entity.getHomeCity(),
                 entity.getGoalStartedAt(),
-                entity.getPlanExpiresAt()
+                entity.getPlanExpiresAt(),
+                entity.getNotifDailyLogReminder(),
+                entity.getNotifWeeklyProgressReport(),
+                entity.getNotifMealSuggestions(),
+                entity.getNotifStreakAlerts(),
+                entity.getNotifMarketingEmails()
         );
     }
 

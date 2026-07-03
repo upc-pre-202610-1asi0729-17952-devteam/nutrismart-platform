@@ -43,7 +43,12 @@ public final class UserResourceFromEntityAssembler {
                 user.getCreatedAt(),
                 user.getHomeCity(),
                 user.getGoalStartedAt(),
-                user.getPlanExpiresAt()
+                user.getPlanExpiresAt(),
+                user.getNotifDailyLogReminder(),
+                user.getNotifWeeklyProgressReport(),
+                user.getNotifMealSuggestions(),
+                user.getNotifStreakAlerts(),
+                user.getNotifMarketingEmails()
         );
     }
 }
