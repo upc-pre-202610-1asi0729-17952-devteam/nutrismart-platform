@@ -40,4 +40,7 @@ public class SubscriptionJpaEntity extends AuditableAbstractPersistenceEntity {
 
     @Comment("Fecha de fin del ciclo de facturación vigente")
     private LocalDate billingCycleEnd;
+
+    @Comment("Identificador del Customer de Stripe que respalda los cargos de esta suscripción (cus_xxx)")
+    private String stripeCustomerId;
 }

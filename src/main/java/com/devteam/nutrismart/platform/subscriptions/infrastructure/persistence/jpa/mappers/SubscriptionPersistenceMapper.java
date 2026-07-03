@@ -20,6 +20,7 @@ public final class SubscriptionPersistenceMapper {
         entity.setStatus(subscription.getStatus());
         entity.setBillingCycleStart(subscription.getBillingCycleStart());
         entity.setBillingCycleEnd(subscription.getBillingCycleEnd());
+        entity.setStripeCustomerId(subscription.getStripeCustomerId());
         entity.setCreatedAt(subscription.getCreatedAt());
         return entity;
     }
@@ -32,6 +33,7 @@ public final class SubscriptionPersistenceMapper {
                 entity.getStatus(),
                 entity.getBillingCycleStart(),
                 entity.getBillingCycleEnd(),
+                entity.getStripeCustomerId(),
                 entity.getCreatedAt()
         );
     }

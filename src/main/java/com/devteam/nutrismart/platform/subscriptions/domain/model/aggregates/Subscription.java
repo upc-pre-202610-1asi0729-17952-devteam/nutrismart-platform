@@ -20,6 +20,7 @@ public class Subscription {
     private SubscriptionStatus status;
     private LocalDate billingCycleStart;
     private LocalDate billingCycleEnd;
+    private String stripeCustomerId;
     private Instant createdAt;
 
     private Subscription() {}
@@ -62,7 +63,8 @@ public class Subscription {
      * @return instancia de {@link Subscription} rehidratada
      */
     public static Subscription rehydrate(Long id, Long userId, SubscriptionPlan plan, SubscriptionStatus status,
-                                         LocalDate billingCycleStart, LocalDate billingCycleEnd, Instant createdAt) {
+                                         LocalDate billingCycleStart, LocalDate billingCycleEnd,
+                                         String stripeCustomerId, Instant createdAt) {
         Subscription s = new Subscription();
         s.id = id;
         s.userId = userId;
@@ -70,8 +72,19 @@ public class Subscription {
         s.status = status;
         s.billingCycleStart = billingCycleStart;
         s.billingCycleEnd = billingCycleEnd;
+        s.stripeCustomerId = stripeCustomerId;
         s.createdAt = createdAt;
         return s;
+    }
+
+    /**
+     * Registra el identificador del Customer de Stripe que respalda los cargos recurrentes de
+     * esta suscripción. Queda disponible para renovaciones y cambios de plan futuros.
+     *
+     * @param stripeCustomerId identificador del Customer en Stripe (cus_xxx)
+     */
+    public void applyStripeCustomer(String stripeCustomerId) {
+        this.stripeCustomerId = stripeCustomerId;
     }
 
     /**
@@ -96,5 +109,6 @@ public class Subscription {
     public SubscriptionStatus getStatus() { return status; }
     public LocalDate getBillingCycleStart() { return billingCycleStart; }
     public LocalDate getBillingCycleEnd() { return billingCycleEnd; }
+    public String getStripeCustomerId() { return stripeCustomerId; }
     public Instant getCreatedAt() { return createdAt; }
 }
