@@ -5,8 +5,10 @@ import com.devteam.nutrismart.platform.metabolicadaptation.application.commandse
 import com.devteam.nutrismart.platform.metabolicadaptation.application.commands.DeleteActivityLogCommand;
 import com.devteam.nutrismart.platform.metabolicadaptation.application.commands.LogActivityCommand;
 import com.devteam.nutrismart.platform.metabolicadaptation.domain.model.aggregates.ActivityLog;
+import com.devteam.nutrismart.platform.metabolicadaptation.domain.model.events.ActivityLoggedEvent;
 import com.devteam.nutrismart.platform.metabolicadaptation.domain.model.repositories.ActivityLogRepository;
 import com.devteam.nutrismart.platform.shared.application.result.Result;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,9 +21,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class ActivityLogCommandServiceImpl implements ActivityLogCommandService {
 
     private final ActivityLogRepository repository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public ActivityLogCommandServiceImpl(ActivityLogRepository repository) {
+    public ActivityLogCommandServiceImpl(ActivityLogRepository repository,
+                                         ApplicationEventPublisher eventPublisher) {
         this.repository = repository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -29,7 +34,10 @@ public class ActivityLogCommandServiceImpl implements ActivityLogCommandService 
         try {
             ActivityLog al = ActivityLog.create(command.userId(), command.activityType(),
                     command.durationMinutes(), command.caloriesBurned(), command.timestamp());
-            return Result.success(repository.save(al));
+            ActivityLog saved = repository.save(al);
+            eventPublisher.publishEvent(ActivityLoggedEvent.of(
+                    saved.getUserId(), saved.getActivityType(), saved.getCaloriesBurned()));
+            return Result.success(saved);
         } catch (Exception ex) {
             return Result.failure(new ActivityLogCommandFailure.InvalidData(ex.getMessage()));
         }
